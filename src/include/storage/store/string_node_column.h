@@ -7,8 +7,8 @@ namespace kuzu {
 namespace storage {
 
 struct StringNodeColumnFunc {
-    static void writeStringValuesToPage(
-        uint8_t* frame, uint16_t posInFrame, common::ValueVector* vector, uint32_t posInVector);
+    static void writeStringValuesToPage(uint8_t* frame, uint16_t posInFrame,
+        common::ValueVector* vector, uint32_t posInVector, const CompressionMetadata& metadata);
 };
 
 class StringNodeColumn : public NodeColumn {

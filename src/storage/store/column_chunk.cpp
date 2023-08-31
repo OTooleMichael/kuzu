@@ -3,6 +3,7 @@
 #include "arrow/array.h"
 #include "common/types/value/nested.h"
 #include "storage/storage_structure/storage_structure_utils.h"
+#include "storage/store/compression.h"
 #include "storage/store/string_column_chunk.h"
 #include "storage/store/struct_column_chunk.h"
 #include "storage/store/table_copy_utils.h"
@@ -14,12 +15,74 @@ using namespace kuzu::transaction;
 namespace kuzu {
 namespace storage {
 
+ColumnChunkMetadata fixedSizedFlushBuffer(const uint8_t* buffer, uint64_t bufferSize,
+    uint64_t numValues, BMFileHandle* dataFH, page_idx_t startPageIdx) {
+    FileUtils::writeToFile(dataFH->getFileInfo(), buffer, bufferSize,
+        startPageIdx * BufferPoolConstants::PAGE_4KB_SIZE);
+    return ColumnChunkMetadata(startPageIdx, ColumnChunk::getNumPagesForBytes(bufferSize),
+        numValues, CompressionMetadata());
+}
+
+ColumnChunkMetadata booleanFlushBuffer(const uint8_t* buffer, uint64_t bufferSize,
+    uint64_t numValues, BMFileHandle* dataFH, page_idx_t startPageIdx) {
+    // Since we compress into memory, storage is the same as fixed-sized values,
+    // but we need to mark it as being boolean compressed.
+    FileUtils::writeToFile(dataFH->getFileInfo(), buffer, bufferSize,
+        startPageIdx * BufferPoolConstants::PAGE_4KB_SIZE);
+    return ColumnChunkMetadata(startPageIdx, ColumnChunk::getNumPagesForBytes(bufferSize),
+        numValues, CompressionMetadata(CompressionType::BOOLEAN_BITPACKING));
+}
+
+class CompressedFlushBuffer {
+    std::shared_ptr<CompressionAlg> alg;
+    const LogicalType& dataType;
+
+public:
+    CompressedFlushBuffer(std::unique_ptr<CompressionAlg> alg, LogicalType& dataType)
+        : alg{std::move(alg)}, dataType{dataType} {}
+
+    CompressedFlushBuffer(const CompressedFlushBuffer& other) = default;
+
+    ColumnChunkMetadata operator()(const uint8_t* buffer, uint64_t bufferSize, uint64_t numValues,
+        BMFileHandle* dataFH, page_idx_t startPageIdx) {
+        int64_t valuesRemaining = numValues;
+        const uint8_t* bufferStart = buffer;
+        auto compressedBuffer = std::make_unique<uint8_t[]>(BufferPoolConstants::PAGE_4KB_SIZE);
+        auto numPages = 0;
+        auto metadata = alg->startCompression(buffer, numValues);
+        auto numValuesPerPage = metadata.numValues(BufferPoolConstants::PAGE_4KB_SIZE, dataType);
+        do {
+            auto compressedSize = alg->compressNextPage(bufferStart, valuesRemaining,
+                compressedBuffer.get(), BufferPoolConstants::PAGE_4KB_SIZE, metadata);
+            // Avoid underflows
+            if (numValuesPerPage > valuesRemaining) {
+                valuesRemaining = 0;
+            } else {
+                valuesRemaining -= numValuesPerPage;
+            }
+            FileUtils::writeToFile(dataFH->getFileInfo(), compressedBuffer.get(), compressedSize,
+                (startPageIdx + numPages) * BufferPoolConstants::PAGE_4KB_SIZE);
+            numPages++;
+        } while (valuesRemaining > 0);
+        return ColumnChunkMetadata(startPageIdx, numPages, numValues, metadata);
+    }
+};
+
 ColumnChunk::ColumnChunk(
     LogicalType dataType, std::unique_ptr<CSVReaderConfig> csvReaderConfig, bool hasNullChunk)
     : dataType{std::move(dataType)}, numBytesPerValue{getDataTypeSizeInChunk(this->dataType)},
       csvReaderConfig{std::move(csvReaderConfig)}, numValues{0} {
     if (hasNullChunk) {
         nullChunk = std::make_unique<NullColumnChunk>();
+    }
+    switch (this->dataType.getPhysicalType()) {
+    case PhysicalTypeID::BOOL: {
+        flushBufferFunction = booleanFlushBuffer;
+        break;
+    }
+    default: {
+        flushBufferFunction = fixedSizedFlushBuffer;
+    }
     }
 }
 
@@ -363,10 +426,8 @@ page_idx_t ColumnChunk::getNumPages() const {
     return numPagesToFlush;
 }
 
-page_idx_t ColumnChunk::flushBuffer(BMFileHandle* dataFH, page_idx_t startPageIdx) {
-    FileUtils::writeToFile(dataFH->getFileInfo(), buffer.get(), bufferSize,
-        startPageIdx * BufferPoolConstants::PAGE_4KB_SIZE);
-    return getNumPagesForBuffer();
+ColumnChunkMetadata ColumnChunk::flushBuffer(BMFileHandle* dataFH, page_idx_t startPageIdx) {
+    return flushBufferFunction(buffer.get(), bufferSize, numValues, dataFH, startPageIdx);
 }
 
 uint32_t ColumnChunk::getDataTypeSizeInChunk(LogicalType& dataType) {

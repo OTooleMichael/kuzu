@@ -1,6 +1,7 @@
 add_library(kuzu_storage_store
         OBJECT
         column_chunk.cpp
+        compression.cpp
         node_column.cpp
         node_group.cpp
         node_table.cpp
@@ -18,3 +19,5 @@ add_library(kuzu_storage_store
 set(ALL_OBJECT_FILES
         ${ALL_OBJECT_FILES} $<TARGET_OBJECTS:kuzu_storage_store>
         PARENT_SCOPE)
+
+target_link_libraries(kuzu_storage_store PRIVATE fastpfor)

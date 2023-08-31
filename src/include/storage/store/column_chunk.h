@@ -4,6 +4,7 @@
 #include "common/type_utils.h"
 #include "common/types/types.h"
 #include "common/vector/value_vector.h"
+#include "compression.h"
 #include "storage/buffer_manager/bm_file_handle.h"
 #include "storage/wal/wal.h"
 #include "transaction/transaction.h"
@@ -16,6 +17,7 @@ namespace kuzu {
 namespace storage {
 
 class NullColumnChunk;
+class CompressionAlg;
 
 struct BaseColumnChunkMetadata {
     common::page_idx_t pageIdx;
@@ -29,11 +31,13 @@ struct BaseColumnChunkMetadata {
 
 struct ColumnChunkMetadata : public BaseColumnChunkMetadata {
     uint64_t numValues;
+    CompressionMetadata compMeta;
 
     ColumnChunkMetadata() : BaseColumnChunkMetadata(), numValues{UINT64_MAX} {}
-    ColumnChunkMetadata(
-        common::page_idx_t pageIdx, common::page_idx_t numPages, uint64_t numNodesInChunk)
-        : BaseColumnChunkMetadata{pageIdx, numPages}, numValues(numNodesInChunk) {}
+    ColumnChunkMetadata(common::page_idx_t pageIdx, common::page_idx_t numPages,
+        uint64_t numNodesInChunk, CompressionMetadata compMeta)
+        : BaseColumnChunkMetadata{pageIdx, numPages}, numValues(numNodesInChunk),
+          compMeta(compMeta) {}
 };
 
 struct OverflowColumnChunkMetadata : public BaseColumnChunkMetadata {
@@ -91,7 +95,7 @@ public:
     virtual void append(
         arrow::Array* array, common::offset_t startPosInChunk, uint32_t numValuesToAppend);
 
-    virtual common::page_idx_t flushBuffer(BMFileHandle* dataFH, common::page_idx_t startPageIdx);
+    ColumnChunkMetadata flushBuffer(BMFileHandle* dataFH, common::page_idx_t startPageIdx);
 
     // Returns the size of the data type in bytes
     static uint32_t getDataTypeSizeInChunk(common::LogicalType& dataType);
@@ -161,6 +165,9 @@ protected:
     std::vector<std::unique_ptr<ColumnChunk>> childrenChunks;
     std::unique_ptr<common::CSVReaderConfig> csvReaderConfig;
     uint64_t numValues;
+    std::function<ColumnChunkMetadata(
+        const uint8_t*, uint64_t, uint64_t, BMFileHandle*, common::page_idx_t)>
+        flushBufferFunction;
 };
 
 template<>
@@ -175,6 +182,7 @@ inline bool ColumnChunk::getValue(common::offset_t pos) const {
     return common::NullMask::isNull((uint64_t*)buffer.get(), pos);
 }
 
+// Stored as bitpacked booleans in-memory and on-disk
 class BoolColumnChunk : public ColumnChunk {
 public:
     BoolColumnChunk(
