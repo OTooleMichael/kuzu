@@ -12,7 +12,7 @@ jobs:
     env:
       # Share build cache when building rust API and the example project
       CARGO_TARGET_DIR: ${{ github.workspace }}/target
-      CARGO_BUILD_JOBS: 32
+      CARGO_BUILD_JOBS: $(nproc)
       CC: gcc
       CXX: g++
     steps:
@@ -28,16 +28,16 @@ jobs:
         working-directory: tools/nodejs_api
 
       - name: Test with coverage
-        run: CC=gcc CXX=g++ make lcov NUM_THREADS=32
+        run: CC=gcc CXX=g++ make lcov NUM_THREADS=$(nproc)
 
       - name: Python test
-        run: CC=gcc CXX=g++ make pytest NUM_THREADS=32
+        run: CC=gcc CXX=g++ make pytest NUM_THREADS=$(nproc)
       
       - name: Node.js test
-        run: CC=gcc CXX=g++ make nodejstest NUM_THREADS=32
+        run: CC=gcc CXX=g++ make nodejstest NUM_THREADS=$(nproc)
 
       - name: Java test
-        run: CC=gcc CXX=g++ make javatest NUM_THREADS=32
+        run: CC=gcc CXX=g++ make javatest NUM_THREADS=$(nproc)
 
       - name: C Example
         working-directory: examples/c
