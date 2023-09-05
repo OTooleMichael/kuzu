@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Rust set env
-        run: echo "CARGO_BUILD_JOBS=$(nproc)" >> $GITHUB_ENV
+        run: echo "CARGO_BUILD_JOBS=1" >> $GITHUB_ENV
 
       - name: Rust test
         working-directory: tools/rust_api
