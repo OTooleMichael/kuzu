@@ -9,6 +9,12 @@ jobs:
   simple-test:
     name: simple test
     runs-on: ubuntu-20.04
+    env:
+      # Share build cache when building rust API and the example project
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
+      CARGO_BUILD_JOBS: $(nproc)
+      CC: gcc
+      CXX: g++
     steps:
       - uses: actions/checkout@v3
 
