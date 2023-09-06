@@ -71,3 +71,50 @@ jobs:
       - name: Rust example
         working-directory: examples/rust
         run: cargo build
+
+  macos-build-test:
+    name: macos build & test
+    runs-on: macos-11
+    env:
+      CC: clang-14
+      CXX: clang++-14
+    steps:
+      - uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+
+      - uses: actions/checkout@v3
+
+      - name: Ensure python dependencies
+        run: |
+          pip install torch~=1.13 --extra-index-url https://download.pytorch.org/whl/cpu &&\
+          pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-1.13.0+cpu.html
+
+      - name: Ensure Node.js dependencies
+        run: npm install --include=dev
+        working-directory: tools/nodejs_api
+
+      - name: Build
+        run: CC=clang-14 CXX=clang++-14 make release NUM_THREADS=$(sysctl -n hw.ncpu)
+
+      - name: Test
+        run: CC=clang-14 CXX=clang++-14 make test NUM_THREADS=$(sysctl -n hw.ncpu)
+
+      - name: Python test
+        run: CC=clang-14 CXX=clang++-14 make pytest NUM_THREADS=$(sysctl -n hw.ncpu)
+      
+      - name: Node.js test
+        run: CC=clang-14 CXX=clang++-14 make nodejstest NUM_THREADS=$(sysctl -n hw.ncpu)
+      
+      - name: Java test
+        run: CC=clang-14 CXX=clang++-14 make javatest NUM_THREADS=$(sysctl -n hw.ncpu)
+
+      - name: Rust set env
+        run: echo "CARGO_BUILD_JOBS=$(sysctl -n hw.ncpu)" >> $GITHUB_ENV
+
+      - name: Rust test
+        working-directory: tools/rust_api
+        run: |
+          cargo update -p half@2.3.1 --precise '2.2.1'
+          cargo update -p time --precise '0.3.23'
+          cargo test --features arrow -- --test-threads=1
