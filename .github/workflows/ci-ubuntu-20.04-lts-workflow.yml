@@ -17,8 +17,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - run: df -h
+
       - name: Rust set env
         run: echo "CARGO_BUILD_JOBS=1" >> $GITHUB_ENV
+
+      - run: df -h
 
       - name: Rust test
         working-directory: tools/rust_api
@@ -27,6 +31,10 @@ jobs:
           cargo update -p time --precise '0.3.23'
           cargo test --features arrow -- --test-threads=1
 
+      - run: df -h
+
       - name: Rust example
         working-directory: examples/rust
         run: cargo build
+
+      - run: df -h
