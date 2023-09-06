@@ -29,7 +29,7 @@ jobs:
         working-directory: tools/nodejs_api
 
       - name: Install clang++-14
-        run: brew install clang++-14
+        run: brew uninstall llvm; brew install llvm@14
 
       - name: Build
         run: CC=clang-14 CXX=clang++-14 make release NUM_THREADS=$(sysctl -n hw.ncpu)
