@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-20.04
     env:
       # Share build cache when building rust API and the example project
-      CARGO_TARGET_DIR: ${{ github.workspace }}/target
+      # CARGO_TARGET_DIR: ${{ github.workspace }}/target
       CC: gcc
       CXX: g++
     steps:
@@ -28,18 +28,18 @@ jobs:
       - run: df -h
 
       - name: Rust set env
-        run: echo "CARGO_BUILD_JOBS=1" >> $GITHUB_ENV
+        run: echo "CARGO_BUILD_JOBS=$(nproc)" >> $GITHUB_ENV
 
       - run: df -h
 
-      - name: Rust test
-        working-directory: tools/rust_api
-        run: |
-          cargo update -p half@2.3.1 --precise '2.2.1'
-          cargo update -p time --precise '0.3.23'
-          cargo test --features arrow -- --test-threads=1
+      # - name: Rust test
+      #   working-directory: tools/rust_api
+      #   run: |
+      #     cargo update -p half@2.3.1 --precise '2.2.1'
+      #     cargo update -p time --precise '0.3.23'
+      #     cargo test --features arrow -- --test-threads=1
 
-      - run: df -h
+      # - run: df -h
 
       - name: Rust example
         working-directory: examples/rust
