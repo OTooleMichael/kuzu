@@ -79,9 +79,9 @@ jobs:
       CC: clang-14
       CXX: clang++-14
     steps:
-      - uses: jlumbroso/free-disk-space@main
-        with:
-          tool-cache: true
+      # - uses: jlumbroso/free-disk-space@main
+      #   with:
+      #     tool-cache: true
 
       - uses: actions/checkout@v3
 
