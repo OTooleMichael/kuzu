@@ -28,13 +28,13 @@ jobs:
         run: npm install --include=dev
         working-directory: tools/nodejs_api
 
-      - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@v1
-        with:
-          version: '14'
+      # - name: Install LLVM and Clang
+      #   uses: KyleMayes/install-llvm-action@v1
+      #   with:
+      #     version: '14'
 
       - name: Build
-        run: CC=clang-14 CXX=clang++-14 make release NUM_THREADS=$(sysctl -n hw.ncpu)
+        run: CC=clang CXX=clang++ make release NUM_THREADS=$(sysctl -n hw.ncpu)
 
       - name: Test
         run: CC=clang-14 CXX=clang++-14 make test NUM_THREADS=$(sysctl -n hw.ncpu)
