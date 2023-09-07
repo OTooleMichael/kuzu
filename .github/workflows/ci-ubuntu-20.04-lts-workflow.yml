@@ -19,7 +19,7 @@ jobs:
 
       - name: Ensure Python dependencies
         run: |
-          pip install torch~=1.13 --extra-index-url https://download.pytorch.org/whl/cpu &&\
+          pip install torch~=1.13 --extra-index-url https://download.pytorch.org/whl/cpu &&^
           pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-1.13.0+cpu.html
 
       - name: Ensure Node.js dependencies
