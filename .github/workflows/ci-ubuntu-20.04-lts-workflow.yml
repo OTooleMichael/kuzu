@@ -21,12 +21,10 @@ jobs:
       #   run: |
       #     chcp 65001
       #     echo "CARGO_BUILD_JOBS=%NUMBER_OF_PROCESSORS%" >> $env:GITHUB_ENV
-      
-      - shell: cmd
-        run: set CARGO_BUILD_JOBS=%NUMBER_OF_PROCESSORS%
 
       - shell: cmd
         run: |
+          set CARGO_BUILD_JOBS=%NUMBER_OF_PROCESSORS%
           echo %NUMBER_OF_PROCESSORS%
           echo %CARGO_BUILD_JOBS%
 
