@@ -12,14 +12,14 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      # - uses: actions/setup-python@v4
-      #   with:
-      #     python-version: '3.10'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
 
       - name: Ensure python dependencies
         run: |
-          pip3 install torch~=1.13 --extra-index-url https://download.pytorch.org/whl/cpu &&\
-          pip3 install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-1.13.0+cpu.html
+          pip install torch~=1.13 --extra-index-url https://download.pytorch.org/whl/cpu &&\
+          pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-1.13.0+cpu.html
 
       - name: Ensure Node.js dependencies
         run: npm install --include=dev
