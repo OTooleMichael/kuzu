@@ -17,16 +17,14 @@ jobs:
 
       # - uses: ilammy/msvc-dev-cmd@v1
 
-      # - shell: cmd
-      #   run: |
-      #     chcp 65001
-      #     echo "CARGO_BUILD_JOBS=%NUMBER_OF_PROCESSORS%" >> $env:GITHUB_ENV
-
-      - shell: cmd
+      - name: Ensure Python dependencies
         run: |
-          set CARGO_BUILD_JOBS=%NUMBER_OF_PROCESSORS%
-          echo %NUMBER_OF_PROCESSORS%
-          echo %CARGO_BUILD_JOBS%
+          pip install torch~=1.13 --extra-index-url https://download.pytorch.org/whl/cpu &&\
+          pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-1.13.0+cpu.html
+
+      - name: Ensure Node.js dependencies
+        run: npm install --include=dev
+        working-directory: tools/nodejs_api
 
       - name: Build and test
         shell: cmd
@@ -34,21 +32,34 @@ jobs:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           make test NUM_THREADS=%NUMBER_OF_PROCESSORS%
 
-      - name: Rust test
+      - name: Python test
         shell: cmd
-        working-directory: tools/rust_api
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
-          set OPENSSL_DIR=C:\Program Files\OpenSSL-Win64
-          set KUZU_TESTING=1
-          set CFLAGS=/MDd
-          set CXXFLAGS=/MDd /std:c++20
-          cargo update -p half@2.3.1 --precise 2.2.1
-          cargo update -p time --precise '0.3.23'
-          cargo test -- --test-threads=1
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          make pytest NUM_THREADS=%NUMBER_OF_PROCESSORS%
+
+      - name: Node.js test
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          make nodejstest NUM_THREADS=%NUMBER_OF_PROCESSORS%
 
       - name: Java test
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           make javatest NUM_THREADS=%NUMBER_OF_PROCESSORS%
+
+      - name: Rust test
+        shell: cmd
+        working-directory: tools/rust_api
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          set OPENSSL_DIR=C:\Program Files\OpenSSL-Win64
+          set KUZU_TESTING=1
+          set CFLAGS=/MDd
+          set CXXFLAGS=/MDd /std:c++20
+          set CARGO_BUILD_JOBS=%NUMBER_OF_PROCESSORS%
+          cargo update -p half@2.3.1 --precise 2.2.1
+          cargo update -p time --precise '0.3.23'
+          cargo test -- --test-threads=1
