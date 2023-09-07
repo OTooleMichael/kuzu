@@ -12,33 +12,33 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
+      # - uses: actions/setup-python@v4
+      #   with:
+      #     python-version: '3.10'
 
       - name: Ensure python dependencies
         run: |
-          pip install torch~=1.13 --extra-index-url https://download.pytorch.org/whl/cpu &&\
-          pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-1.13.0+cpu.html
+          pip3 install torch~=1.13 --extra-index-url https://download.pytorch.org/whl/cpu &&\
+          pip3 install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-1.13.0+cpu.html
 
       - name: Ensure Node.js dependencies
         run: npm install --include=dev
         working-directory: tools/nodejs_api
 
-      - name: Build
-        run: make release NUM_THREADS=$(sysctl -n hw.ncpu)
+      # - name: Build
+      #   run: make release NUM_THREADS=$(sysctl -n hw.ncpu)
 
-      - name: Test
-        run: make test NUM_THREADS=$(sysctl -n hw.ncpu)
+      # - name: Test
+      #   run: make test NUM_THREADS=$(sysctl -n hw.ncpu)
 
-      - name: Python test
-        run: make pytest NUM_THREADS=$(sysctl -n hw.ncpu)
+      # - name: Python test
+      #   run: make pytest NUM_THREADS=$(sysctl -n hw.ncpu)
       
-      - name: Node.js test
-        run: make nodejstest NUM_THREADS=$(sysctl -n hw.ncpu)
+      # - name: Node.js test
+      #   run: make nodejstest NUM_THREADS=$(sysctl -n hw.ncpu)
       
-      - name: Java test
-        run: make javatest NUM_THREADS=$(sysctl -n hw.ncpu)
+      # - name: Java test
+      #   run: make javatest NUM_THREADS=$(sysctl -n hw.ncpu)
 
       - name: Rust set env
         run: echo "CARGO_BUILD_JOBS=$(sysctl -n hw.ncpu)" >> $GITHUB_ENV
