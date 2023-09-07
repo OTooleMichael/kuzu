@@ -20,12 +20,7 @@ jobs:
 
       - shell: cmd
         run: |
-          echo %NUMBER_OF_PROCESSORS%
-          echo %CARGO_BUILD_JOBS%
-
-      - shell: cmd
-        run: |
-          chcp 65001 #set code page to utf-8
+          chcp 65001
           echo "CARGO_BUILD_JOBS=%NUMBER_OR_PROCESSORS%" >> $env:GITHUB_ENV
       
       - shell: cmd
