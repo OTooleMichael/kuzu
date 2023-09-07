@@ -12,6 +12,7 @@ jobs:
     env:
       # Shorten build path as much as possible
       CARGO_TARGET_DIR: ${{ github.workspace }}/rs
+      CMAKE_CXX_COMPILER: MSVC
     steps:
       - uses: actions/checkout@v3
 
