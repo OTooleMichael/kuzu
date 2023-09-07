@@ -12,7 +12,7 @@ jobs:
     env:
       # Shorten build path as much as possible
       CARGO_TARGET_DIR: ${{ github.workspace }}/rs
-      CMAKE_CXX_COMPILER: MSVC
+      # CMAKE_CXX_COMPILER: MSVC
     steps:
       - uses: actions/checkout@v3
 
@@ -20,17 +20,17 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
-          make test NUM_THREADS=%NUMBER_OF_PROCESSORS%
+          make test NUM_THREADS=2
 
-      - shell: cmd
-        run: |
-          chcp 65001 #set code page to utf-8
-          echo "CARGO_BUILD_JOBS=%NUMBER_OR_PROCESSORS%" >> $env:GITHUB_ENV
+      # - shell: cmd
+      #   run: |
+      #     chcp 65001 #set code page to utf-8
+      #     echo "CARGO_BUILD_JOBS=%NUMBER_OR_PROCESSORS%" >> $env:GITHUB_ENV
       
-      - shell: cmd
-        run: |
-          echo %NUMBER_OF_PROCESSORS%
-          echo %CARGO_BUILD_JOBS%
+      # - shell: cmd
+      #   run: |
+      #     echo %NUMBER_OF_PROCESSORS%
+      #     echo %CARGO_BUILD_JOBS%
 
       - name: Rust test
         shell: cmd
