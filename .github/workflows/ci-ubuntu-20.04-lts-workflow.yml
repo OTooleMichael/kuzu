@@ -12,7 +12,6 @@ jobs:
     env:
       # Shorten build path as much as possible
       CARGO_TARGET_DIR: ${{ github.workspace }}/rs
-      CARGO_BUILD_JOBS: '%NUMBER_OF_PROCESSORS%'
     steps:
       - uses: actions/checkout@v3
 
@@ -23,6 +22,9 @@ jobs:
       #     chcp 65001
       #     echo "CARGO_BUILD_JOBS=%NUMBER_OF_PROCESSORS%" >> $env:GITHUB_ENV
       
+      - shell: cmd
+        run: set CARGO_BUILD_JOBS=%NUMBER_OF_PROCESSORS%
+
       - shell: cmd
         run: |
           echo %NUMBER_OF_PROCESSORS%
