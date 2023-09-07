@@ -6,46 +6,46 @@ on:
     - cron: '0 0 * * *'
 
 jobs:
-  macos-build-test:
-    name: macos build & test
-    runs-on: macos-11
+  windows-build-test:
+    name: windows build & test
+    runs-on: windows-2019
+    env:
+      # Shorten build path as much as possible
+      CARGO_TARGET_DIR: ${{ github.workspace }}/rs
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Ensure python dependencies
+      - name: Build and test
+        shell: cmd
         run: |
-          pip install torch~=1.13 --extra-index-url https://download.pytorch.org/whl/cpu &&\
-          pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-1.13.0+cpu.html
+          call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
+          make test NUM_THREADS=%NUMBER_OF_PROCESSORS%
 
-      - name: Ensure Node.js dependencies
-        run: npm install --include=dev
-        working-directory: tools/nodejs_api
-
-      # - name: Build
-      #   run: make release NUM_THREADS=$(sysctl -n hw.ncpu)
-
-      # - name: Test
-      #   run: make test NUM_THREADS=$(sysctl -n hw.ncpu)
-
-      # - name: Python test
-      #   run: make pytest NUM_THREADS=$(sysctl -n hw.ncpu)
+      - shell: cmd
+        run: |
+          chcp 65001 #set code page to utf-8
+          echo "CARGO_BUILD_JOBS=%NUMBER_OR_PROCESSORS%" >> $env:GITHUB_ENV
       
-      # - name: Node.js test
-      #   run: make nodejstest NUM_THREADS=$(sysctl -n hw.ncpu)
-      
-      # - name: Java test
-      #   run: make javatest NUM_THREADS=$(sysctl -n hw.ncpu)
-
-      - name: Rust set env
-        run: echo "CARGO_BUILD_JOBS=$(sysctl -n hw.ncpu)" >> $GITHUB_ENV
+      - shell: cmd
+        run: |
+          echo %NUMBER_OF_PROCESSORS%
+          echo %CARGO_BUILD_JOBS%
 
       - name: Rust test
+        shell: cmd
         working-directory: tools/rust_api
         run: |
-          cargo update -p half@2.3.1 --precise '2.2.1'
+          call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
+          set OPENSSL_DIR=C:\Program Files\OpenSSL-Win64
+          set KUZU_TESTING=1
+          set CFLAGS=/MDd
+          set CXXFLAGS=/MDd /std:c++20
+          cargo update -p half@2.3.1 --precise 2.2.1
           cargo update -p time --precise '0.3.23'
-          cargo test --features arrow -- --test-threads=1
+          cargo test -- --test-threads=1
+
+      - name: Java test
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
+          make javatest NUM_THREADS=%NUMBER_OF_PROCESSORS%
