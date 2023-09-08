@@ -6,23 +6,55 @@ on:
     - cron: '0 0 * * *'
 
 jobs:
-  macos-build-test:
-    name: macos build & test
-    runs-on: macos-11
+  windows-build-test:
+    name: windows build & test
+    runs-on: windows-2022
+    env:
+      # Shorten build path as much as possible
+      CARGO_TARGET_DIR: ${{ github.workspace }}/rs
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@v1
-        with:
-          version: '14'
+      - uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Rust set env
-        run: echo "CARGO_BUILD_JOBS=$(sysctl -n hw.ncpu)" >> $GITHUB_ENV
+      - name: Ensure Python dependencies
+        run: |
+          pip install torch~=1.13 --extra-index-url https://download.pytorch.org/whl/cpu
+          pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-1.13.0+cpu.html
+
+      - name: Ensure Node.js dependencies
+        run: npm install --include=dev
+        working-directory: tools/nodejs_api
+
+      - name: Python test
+        shell: cmd
+        run: |
+          make pytest NUM_THREADS=%NUMBER_OF_PROCESSORS%
+
+      - name: Node.js test
+        shell: cmd
+        run: |
+          make nodejstest NUM_THREADS=%NUMBER_OF_PROCESSORS%
+
+      - name: Java test
+        shell: cmd
+        run: |
+          make javatest NUM_THREADS=%NUMBER_OF_PROCESSORS%
 
       - name: Rust test
+        shell: cmd
         working-directory: tools/rust_api
         run: |
-          cargo update -p half@2.3.1 --precise '2.2.1'
+          set OPENSSL_DIR=C:\Program Files\OpenSSL-Win64
+          set KUZU_TESTING=1
+          set CFLAGS=/MDd
+          set CXXFLAGS=/MDd /std:c++20
+          set CARGO_BUILD_JOBS=%NUMBER_OF_PROCESSORS%
+          cargo update -p half@2.3.1 --precise 2.2.1
           cargo update -p time --precise '0.3.23'
-          cargo test --features arrow -- --test-threads=1
+          cargo test -- --test-threads=1
+
+      - name: Build and test
+        shell: cmd
+        run: |
+          make test NUM_THREADS=%NUMBER_OF_PROCESSORS%
