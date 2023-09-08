@@ -6,65 +6,62 @@ on:
     - cron: '0 0 * * *'
 
 jobs:
-  macos-build-test:
-    name: macos build & test
-    strategy:
-      matrix:
-        runner: [macos-11, macos-12]
-    runs-on: ${{ matrix.runner }}
+  gcc-rust-build-test:
+    name: gcc & rust build & test
+    runs-on: ubuntu-20.04
+    env:
+      # Share build cache when building rust API and the example project
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
+      CC: gcc
+      CXX: g++
     steps:
+      - uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+
       - uses: actions/checkout@v3
 
-      # - uses: actions/setup-python@v4
-      #   with:
-      #     python-version: '3.10'
+      - name: Ensure Python dependencies
+        run: |
+          pip install torch~=1.13 --extra-index-url https://download.pytorch.org/whl/cpu
+          pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-1.13.0+cpu.html
 
-      # - name: Ensure python dependencies
-      #   run: |
-      #     pip install torch~=1.13 --extra-index-url https://download.pytorch.org/whl/cpu &&\
-      #     pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-1.13.0+cpu.html
+      - name: Ensure Node.js dependencies
+        run: npm install --include=dev
+        working-directory: tools/nodejs_api
 
-      # - name: Ensure Node.js dependencies
-      #   run: npm install --include=dev
-      #   working-directory: tools/nodejs_api
+      - name: Build and test
+        run: make test NUM_THREADS=$(nproc)
 
-      # - name: Build
-      #   run: make release NUM_THREADS=$(sysctl -n hw.ncpu)
+      - name: C Example
+        working-directory: examples/c
+        run: |
+          mkdir build -p
+          cd build
+          cmake ..
+          cmake --build .
 
-      # - name: Test
-      #   run: make test NUM_THREADS=$(sysctl -n hw.ncpu)
+      - name: C++ Example
+        working-directory: examples/cpp
+        run: |
+          mkdir build -p
+          cd build
+          cmake ..
+          cmake --build .
 
-      # - name: Python test
-      #   run: make pytest NUM_THREADS=$(sysctl -n hw.ncpu)
+      - name: Python test
+        run: make pytest NUM_THREADS=$(nproc)
       
-      # - name: Node.js test
-      #   run: make nodejstest NUM_THREADS=$(sysctl -n hw.ncpu)
-      
-      # - name: Java test
-      #   run: make javatest NUM_THREADS=$(sysctl -n hw.ncpu)
+      - name: Node.js test
+        run: make nodejstest NUM_THREADS=$(nproc)
 
-      # - name: C Example
-      #   working-directory: examples/c
-      #   run: |
-      #     mkdir build -p
-      #     cd build
-      #     cmake ..
-      #     cmake --build .
-
-      # - name: C++ Example
-      #   working-directory: examples/cpp
-      #   run: |
-      #     mkdir build -p
-      #     cd build
-      #     cmake ..
-      #     cmake --build .
+      - name: Java test
+        run: make javatest NUM_THREADS=$(nproc)
 
       - name: Rust set env
-        run: echo "CARGO_BUILD_JOBS=$(sysctl -n hw.ncpu)" >> $GITHUB_ENV
+        run: echo "CARGO_BUILD_JOBS=$(nproc)" >> $GITHUB_ENV
 
       - name: Rust test
-        # temporarily disabled due to bug
-        if: matrix.runner != 'macos-11'
         working-directory: tools/rust_api
         run: |
           cargo update -p half@2.3.1 --precise '2.2.1'
