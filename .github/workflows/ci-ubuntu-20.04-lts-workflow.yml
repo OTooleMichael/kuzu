@@ -31,7 +31,7 @@ jobs:
         working-directory: tools/nodejs_api
 
       - name: Build
-        run: make release NUM_THREADS=$(sysctl -n hw.ncpu)
+        run: CC=clang-14 CXX=clang++-14 make release NUM_THREADS=$(sysctl -n hw.ncpu)
 
       - name: Test
         run: make test NUM_THREADS=$(sysctl -n hw.ncpu)
