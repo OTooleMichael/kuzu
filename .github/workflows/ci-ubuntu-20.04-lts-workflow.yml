@@ -12,10 +12,54 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      # - name: Install LLVM and Clang
-      #   uses: KyleMayes/install-llvm-action@v1
-      #   with:
-      #     version: '14'
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@v1
+        with:
+          version: '14'
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Ensure python dependencies
+        run: |
+          pip install torch~=1.13 --extra-index-url https://download.pytorch.org/whl/cpu &&\
+          pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-1.13.0+cpu.html
+
+      - name: Ensure Node.js dependencies
+        run: npm install --include=dev
+        working-directory: tools/nodejs_api
+
+      - name: Build
+        run: make release NUM_THREADS=$(sysctl -n hw.ncpu)
+
+      - name: Test
+        run: make test NUM_THREADS=$(sysctl -n hw.ncpu)
+
+      - name: Python test
+        run: make pytest NUM_THREADS=$(sysctl -n hw.ncpu)
+      
+      - name: Node.js test
+        run: make nodejstest NUM_THREADS=$(sysctl -n hw.ncpu)
+      
+      - name: Java test
+        run: make javatest NUM_THREADS=$(sysctl -n hw.ncpu)
+
+      - name: C Example
+        working-directory: examples/c
+        run: |
+          mkdir build -p
+          cd build
+          cmake ..
+          cmake --build .
+
+      - name: C++ Example
+        working-directory: examples/cpp
+        run: |
+          mkdir build -p
+          cd build
+          cmake ..
+          cmake --build .
 
       - name: Rust set env
         run: echo "CARGO_BUILD_JOBS=$(sysctl -n hw.ncpu)" >> $GITHUB_ENV
@@ -26,3 +70,7 @@ jobs:
           cargo update -p half@2.3.1 --precise '2.2.1'
           cargo update -p time --precise '0.3.23'
           cargo test --features arrow -- --test-threads=1
+
+      - name: Rust example
+        working-directory: examples/rust
+        run: cargo build
