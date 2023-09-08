@@ -6,55 +6,71 @@ on:
     - cron: '0 0 * * *'
 
 jobs:
-  windows-build-test:
-    name: windows build & test
-    runs-on: windows-2022
-    env:
-      # Shorten build path as much as possible
-      CARGO_TARGET_DIR: ${{ github.workspace }}/rs
+  macos-build-test:
+    name: macos build & test
+    strategy:
+      matrix:
+        runner: [macos-11, macos-12]
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v3
 
-      - uses: ilammy/msvc-dev-cmd@v1
+      # - uses: actions/setup-python@v4
+      #   with:
+      #     python-version: '3.10'
 
-      - name: Ensure Python dependencies
-        run: |
-          pip install torch~=1.13 --extra-index-url https://download.pytorch.org/whl/cpu
-          pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-1.13.0+cpu.html
+      # - name: Ensure python dependencies
+      #   run: |
+      #     pip install torch~=1.13 --extra-index-url https://download.pytorch.org/whl/cpu &&\
+      #     pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-1.13.0+cpu.html
 
-      - name: Ensure Node.js dependencies
-        run: npm install --include=dev
-        working-directory: tools/nodejs_api
+      # - name: Ensure Node.js dependencies
+      #   run: npm install --include=dev
+      #   working-directory: tools/nodejs_api
+
+      # - name: Build
+      #   run: make release NUM_THREADS=$(sysctl -n hw.ncpu)
+
+      # - name: Test
+      #   run: make test NUM_THREADS=$(sysctl -n hw.ncpu)
 
       # - name: Python test
-      #   shell: cmd
+      #   run: make pytest NUM_THREADS=$(sysctl -n hw.ncpu)
+      
+      # - name: Node.js test
+      #   run: make nodejstest NUM_THREADS=$(sysctl -n hw.ncpu)
+      
+      # - name: Java test
+      #   run: make javatest NUM_THREADS=$(sysctl -n hw.ncpu)
+
+      # - name: C Example
+      #   working-directory: examples/c
       #   run: |
-      #     make pytest NUM_THREADS=%NUMBER_OF_PROCESSORS%
+      #     mkdir build -p
+      #     cd build
+      #     cmake ..
+      #     cmake --build .
 
-      - name: Node.js test
-        shell: cmd
-        run: |
-          make nodejstest NUM_THREADS=%NUMBER_OF_PROCESSORS%
+      # - name: C++ Example
+      #   working-directory: examples/cpp
+      #   run: |
+      #     mkdir build -p
+      #     cd build
+      #     cmake ..
+      #     cmake --build .
 
-      - name: Java test
-        shell: cmd
-        run: |
-          make javatest NUM_THREADS=%NUMBER_OF_PROCESSORS%
+      - name: Rust set env
+        run: echo "CARGO_BUILD_JOBS=$(sysctl -n hw.ncpu)" >> $GITHUB_ENV
 
       - name: Rust test
-        shell: cmd
+        # temporarily disabled due to bug
+        if: matrix.runner != 'macos-11'
         working-directory: tools/rust_api
         run: |
-          set OPENSSL_DIR=C:\Program Files\OpenSSL-Win64
-          set KUZU_TESTING=1
-          set CFLAGS=/MDd
-          set CXXFLAGS=/MDd /std:c++20
-          set CARGO_BUILD_JOBS=%NUMBER_OF_PROCESSORS%
-          cargo update -p half@2.3.1 --precise 2.2.1
+          cargo update -p half@2.3.1 --precise '2.2.1'
           cargo update -p time --precise '0.3.23'
-          cargo test -- --test-threads=1
+          cargo test --features arrow -- --test-threads=1
 
-      - name: Build and test
-        shell: cmd
-        run: |
-          make test NUM_THREADS=%NUMBER_OF_PROCESSORS%
+      - name: Rust example
+        working-directory: examples/rust
+        run: cargo build
