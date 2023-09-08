@@ -8,14 +8,9 @@ on:
 jobs:
   macos-build-test:
     name: macos build & test
-    runs-on: macos-11
+    runs-on: macos-12
     steps:
       - uses: actions/checkout@v3
-
-      - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@v1
-        with:
-          version: '14'
 
       - uses: actions/setup-python@v4
         with:
@@ -31,7 +26,7 @@ jobs:
         working-directory: tools/nodejs_api
 
       - name: Build
-        run: CC=clang-14 CXX=clang++-14 make release NUM_THREADS=$(sysctl -n hw.ncpu)
+        run: make release NUM_THREADS=$(sysctl -n hw.ncpu)
 
       - name: Test
         run: make test NUM_THREADS=$(sysctl -n hw.ncpu)
