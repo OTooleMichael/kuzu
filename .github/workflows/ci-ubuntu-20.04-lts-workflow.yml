@@ -33,7 +33,7 @@ jobs:
       - name: C Example
         working-directory: examples/c
         run: |
-          mkdir build -p
+          mkdir build
           cd build
           cmake ..
           cmake --build .
@@ -41,7 +41,7 @@ jobs:
       - name: C++ Example
         working-directory: examples/cpp
         run: |
-          mkdir build -p
+          mkdir build
           cd build
           cmake ..
           cmake --build .
