@@ -13,7 +13,6 @@ jobs:
     steps:
       - name: Install Arch Linux packages
         run: |
-          whoami
           pacman -Syu
           yes | pacman -S --needed base-devel git cmake gcc python python-pip  nodejs jdk17-openjdk rust 
 
@@ -21,8 +20,8 @@ jobs:
 
       - name: Ensure Python dependencies
         run: |
-          pip install torch~=1.13 --extra-index-url https://download.pytorch.org/whl/cpu
-          pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-1.13.0+cpu.html
+          pip install torch~=2.0.0 --extra-index-url https://download.pytorch.org/whl/cpu --break-system-packages
+          pip install -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-2.0.0+cpu.html --break-system-packages
 
       - name: Ensure Node.js dependencies
         run: npm install --include=dev
@@ -32,20 +31,20 @@ jobs:
         run: make test NUM_THREADS=$nproc
 
       - name: Python test
-        run: CC=gcc CXX=g++ make pytest NUM_THREADS=$nproc
+        run: make pytest NUM_THREADS=$nproc
       
       - name: Node.js test
-        run: CC=gcc CXX=g++ make nodejstest NUM_THREADS=$nproc
+        run: make nodejstest NUM_THREADS=$nproc
 
       - name: Java test
-        run: CC=gcc CXX=g++ make javatest NUM_THREADS=$nproc
+        run: make javatest NUM_THREADS=$nproc
       
       - name: C Example
         working-directory: examples/c
         run: |
           mkdir build -p
           cd build
-          CC=gcc CXX=g++ cmake ..
+          cmake ..
           cmake --build .
 
       - name: C++ Example
@@ -53,6 +52,6 @@ jobs:
         run: |
           mkdir build -p
           cd build
-          CC=gcc CXX=g++ cmake ..
+          cmake ..
           cmake --build .
   
