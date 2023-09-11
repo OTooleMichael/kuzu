@@ -15,7 +15,7 @@ jobs:
         run: |
           whoami
           pacman -Syu
-          yes | pacman -S --needed base-devel cmake gcc python nodejs jdk17-openjdk rust
+          yes | pacman -S --needed base-devel git cmake gcc python python-pip  nodejs jdk17-openjdk rust 
 
       - uses: actions/checkout@v3
 
@@ -30,3 +30,29 @@ jobs:
 
       - name: Build and test
         run: make test NUM_THREADS=$nproc
+
+      - name: Python test
+        run: CC=gcc CXX=g++ make pytest NUM_THREADS=$nproc
+      
+      - name: Node.js test
+        run: CC=gcc CXX=g++ make nodejstest NUM_THREADS=$nproc
+
+      - name: Java test
+        run: CC=gcc CXX=g++ make javatest NUM_THREADS=$nproc
+      
+      - name: C Example
+        working-directory: examples/c
+        run: |
+          mkdir build -p
+          cd build
+          CC=gcc CXX=g++ cmake ..
+          cmake --build .
+
+      - name: C++ Example
+        working-directory: examples/cpp
+        run: |
+          mkdir build -p
+          cd build
+          CC=gcc CXX=g++ cmake ..
+          cmake --build .
+  
