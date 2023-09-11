@@ -9,7 +9,7 @@ jobs:
   arch-build-test:
     runs-on: ubuntu-latest
     container:
-      image: arch:latest
+      image: ghcr.io/archlinux/archlinux:latest
     steps:
       - name: Install Arch Linux packages
         run: |
