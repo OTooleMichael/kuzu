@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: arch:latest
-    env:
     steps:
       - name: Install Arch Linux packages
         run: |
