@@ -15,7 +15,7 @@ jobs:
         run: |
           whoami
           pacman -Syu
-          pacman -S --needed base-devel cmake gcc python nodejs jdk17-openjdk rust
+          yes | pacman -S --needed base-devel cmake gcc python nodejs jdk17-openjdk rust
 
       - uses: actions/checkout@v3
 
