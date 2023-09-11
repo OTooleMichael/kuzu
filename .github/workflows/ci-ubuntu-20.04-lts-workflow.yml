@@ -14,7 +14,7 @@ jobs:
       - name: Install Arch Linux packages
         run: |
           pacman -Syu
-          yes | pacman -S --needed base-devel git cmake gcc python python-pip  nodejs jdk17-openjdk rust 
+          yes | pacman -S --needed base-devel git cmake gcc python python-pip  nodejs npm jdk17-openjdk rust
 
       - uses: actions/checkout@v3
 
