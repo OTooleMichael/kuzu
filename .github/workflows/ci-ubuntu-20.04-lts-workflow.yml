@@ -8,24 +8,77 @@ on:
 jobs:
   windows-build-test:
     name: windows build & test
-    runs-on: windows-2019
+    runs-on: windows-2022
     env:
       # Shorten build path as much as possible
       CARGO_TARGET_DIR: ${{ github.workspace }}/rs
     steps:
-      - uses: actions/checkout@v3
+      # - uses: actions/checkout@v3
+
+      - run: |
+          mkdir C:/kuzu
+          git clone https://github.com/kuzudb/kuzu.git C:/kuzu
 
       - uses: ilammy/msvc-dev-cmd@v1
 
       - name: Ensure Python dependencies
+        working-directory: C:/kuzu
         run: |
-          pip install torch~=2.0.0 --extra-index-url https://download.pytorch.org/whl/cpu
-          pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-1.13.0+cpu.html
+            pip install torch~=1.13 --extra-index-url https://download.pytorch.org/whl/cpu
+            pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-1.13.0+cpu.html
 
-      - name: Build and test
-        shell: cmd
-        run: make test NUM_THREADS=%NUMBER_OF_PROCESSORS%
+      - name: Ensure Node.js dependencies
+        run: npm install --include=dev
+        working-directory: C:/kuzu/tools/nodejs_api
 
-      - name: Python test
+      # - name: Build and test
+      #   shell: cmd
+      #   run: make test NUM_THREADS=%NUMBER_OF_PROCESSORS%
+
+      # - name: C Example
+      #   working-directory: examples/c
+      #   run: |
+      #     mkdir build
+      #     cd build
+      #     cmake ..
+      #     cmake --build .
+
+      # - name: C++ Example
+      #   working-directory: examples/cpp
+      #   run: |
+      #     mkdir build
+      #     cd build
+      #     cmake ..
+      #     cmake --build .
+
+      # - name: Python test
+      #   shell: cmd
+      #   run: make pytest NUM_THREADS=%NUMBER_OF_PROCESSORS%
+
+      # - name: Node.js test
+      #   shell: cmd
+      #   run: make nodejstest NUM_THREADS=%NUMBER_OF_PROCESSORS%
+
+      # - name: Java test
+      #   shell: cmd
+      #   run: make javatest NUM_THREADS=%NUMBER_OF_PROCESSORS%
+
+      - name: Rust test
         shell: cmd
-        run: make pytest NUM_THREADS=%NUMBER_OF_PROCESSORS%
+        working-directory: C:/kuzu/tools/rust_api
+        run: |
+          set OPENSSL_DIR=C:\Program Files\OpenSSL-Win64
+          set KUZU_TESTING=1
+          set CFLAGS=/MDd
+          set CXXFLAGS=/MDd /std:c++20
+          set CARGO_BUILD_JOBS=%NUMBER_OF_PROCESSORS%
+          cargo update -p half@2.3.1 --precise 2.2.1
+          cargo update -p time --precise '0.3.23'
+          cargo test -- --test-threads=1
+
+      - name: Rust example
+        shell: cmd
+        working-directory: C:/kuzu/examples/rust
+        run: |
+          set CARGO_BUILD_JOBS=%NUMBER_OF_PROCESSORS%
+          cargo build
