@@ -34,21 +34,21 @@ jobs:
         shell: cmd
         run: make test NUM_THREADS=%NUMBER_OF_PROCESSORS%
 
-      - name: C Example
-        working-directory: examples/c
-        run: |
-          mkdir build
-          cd build
-          cmake ..
-          cmake --build .
-
-      # - name: C++ Example
-      #   working-directory: examples/cpp
+      # - name: C Example
+      #   working-directory: examples/c
       #   run: |
       #     mkdir build
       #     cd build
       #     cmake ..
       #     cmake --build .
+
+      - name: C++ Example
+        working-directory: examples/cpp
+        run: |
+          mkdir build
+          cd build
+          cmake ..
+          cmake --build .
 
       # - name: Python test
       #   shell: cmd
