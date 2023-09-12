@@ -6,91 +6,134 @@ on:
     - cron: '0 0 * * *'
 
 jobs:
-  windows-build-test:
-    name: windows build & test
-    strategy:
-      matrix:
-        runner: [windows-2019, windows-2022]
-    runs-on: ${{ matrix.runner }}
+  ubuntu-2004-build-test:
+    name: ubuntu-20.04 build & test
+    runs-on: ubuntu-20.04
     env:
-      # Shorten build path as much as possible
-      CARGO_TARGET_DIR: ${{ github.workspace }}/rs
+      # Share build cache when building rust API and the example project
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
+      CC: gcc
+      CXX: g++
     steps:
+      - uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+
       - uses: actions/checkout@v3
 
-      - uses: ilammy/msvc-dev-cmd@v1
-
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.8'
-
       - name: Ensure Python dependencies
-        shell: cmd
         run: |
-          pip install torch~=1.13 --extra-index-url https://download.pytorch.org/whl/cpu
-          pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-1.13.0+cpu.html
+          pip install torch~=2.0.0 --extra-index-url https://download.pytorch.org/whl/cpu
+          pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-2.0.0+cpu.html
 
       - name: Ensure Node.js dependencies
-        shell: cmd
         run: npm install --include=dev
         working-directory: tools/nodejs_api
 
       - name: Build and test
-        shell: cmd
-        run: make test NUM_THREADS=%NUMBER_OF_PROCESSORS%
+        run: make test NUM_THREADS=$(nproc)
 
       - name: C Example
-        # temporarily disabled due to bug
-        if: false
-        shell: cmd
         working-directory: examples/c
         run: |
-          mkdir build
+          mkdir build -p
           cd build
           cmake ..
           cmake --build .
 
       - name: C++ Example
-        # temporarily disabled due to bug
-        if: false
-        shell: cmd
         working-directory: examples/cpp
         run: |
-          mkdir build
+          mkdir build -p
           cd build
           cmake ..
           cmake --build .
 
       - name: Python test
-        # temporarily disabled due to bug
-        if: false
-        shell: cmd
-        run: make pytest NUM_THREADS=%NUMBER_OF_PROCESSORS%
-
+        run: make pytest NUM_THREADS=$(nproc)
+      
       - name: Node.js test
-        shell: cmd
-        run: make nodejstest NUM_THREADS=%NUMBER_OF_PROCESSORS%
+        run: make nodejstest NUM_THREADS=$(nproc)
 
       - name: Java test
-        shell: cmd
-        run: make javatest NUM_THREADS=%NUMBER_OF_PROCESSORS%
+        run: make javatest NUM_THREADS=$(nproc)
+
+      - name: Rust set env
+        run: echo "CARGO_BUILD_JOBS=$(nproc)" >> $GITHUB_ENV
 
       - name: Rust test
-        shell: cmd
         working-directory: tools/rust_api
         run: |
-          set OPENSSL_DIR=C:\Program Files\OpenSSL-Win64
-          set KUZU_TESTING=1
-          set CFLAGS=/MDd
-          set CXXFLAGS=/MDd /std:c++20
-          set CARGO_BUILD_JOBS=%NUMBER_OF_PROCESSORS%
-          cargo update -p half@2.3.1 --precise 2.2.1
+          cargo update -p half@2.3.1 --precise '2.2.1'
           cargo update -p time --precise '0.3.23'
-          cargo test -- --test-threads=1
+          cargo test --features arrow -- --test-threads=1
 
       - name: Rust example
-        shell: cmd
         working-directory: examples/rust
+        run: cargo build
+
+  macos-build-test:
+    name: macos build & test
+    strategy:
+      matrix:
+        runner: [macos-11, macos-12]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Ensure python dependencies
         run: |
-          set CARGO_BUILD_JOBS=%NUMBER_OF_PROCESSORS%
-          cargo build
+          pip install torch~=2.0.0 --extra-index-url https://download.pytorch.org/whl/cpu
+          pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-2.0.0+cpu.html
+
+      - name: Ensure Node.js dependencies
+        run: npm install --include=dev
+        working-directory: tools/nodejs_api
+
+      - name: Build and test
+        run: make test NUM_THREADS=$(sysctl -n hw.physicalcpu)
+
+      - name: C Example
+        working-directory: examples/c
+        run: |
+          mkdir build -p
+          cd build
+          cmake ..
+          cmake --build .
+
+      - name: C++ Example
+        working-directory: examples/cpp
+        run: |
+          mkdir build -p
+          cd build
+          cmake ..
+          cmake --build .
+
+      - name: Python test
+        run: make pytest NUM_THREADS=$(sysctl -n hw.physicalcpu)
+      
+      - name: Node.js test
+        run: make nodejstest NUM_THREADS=$(sysctl -n hw.physicalcpu)
+      
+      - name: Java test
+        run: make javatest NUM_THREADS=$(sysctl -n hw.physicalcpu)
+
+      - name: Rust set env
+        run: echo "CARGO_BUILD_JOBS=$(sysctl -n hw.physicalcpu)" >> $GITHUB_ENV
+
+      - name: Rust test
+        # temporarily disabled due to bug
+        if: matrix.runner != 'macos-11'
+        working-directory: tools/rust_api
+        run: |
+          cargo update -p half@2.3.1 --precise '2.2.1'
+          cargo update -p time --precise '0.3.23'
+          cargo test --features arrow -- --test-threads=1
+
+      - name: Rust example
+        working-directory: examples/rust
+        run: cargo build
