@@ -55,6 +55,27 @@ void HashIndexBuilder<T>::bulkReserve(uint32_t numEntries_) {
         indexHeader->nextSplitSlotId = numRequiredSlots - numSlotsOfCurrentLevel;
     }
     allocatePSlots(numRequiredSlots);
+    auto prevLevel = indexHeader->currentLevel;
+    auto prevSplitSlotId = indexHeader->nextSplitSlotId;
+    auto prevNumOfSlots = pSlots->getNumElements();
+    if (prevLevel != indexHeader->currentLevel) {
+        for (int i = 0; i < prevNumOfSlots; i++) {
+            rehashSlots(i);
+        }
+    } else {
+        for (auto i = prevSplitSlotId; i < indexHeader->nextSplitSlotId; i++) {
+            rehashSlots(i);
+        }
+    }
+}
+
+template<typename T>
+void HashIndexBuilder<T>::bulkReserveIfRequired(uint32_t numEntries_) {
+    auto totalEntries = pSlots->getNumElements() * HashIndexConstants::SLOT_CAPACITY;
+    auto loadFactor = (double_t)(numEntries + numEntries_) / totalEntries;
+    if (loadFactor > HashIndexConstants::MAX_LOAD_FACTOR) {
+        bulkReserve(numEntries_);
+    }
 }
 
 template<typename T>
@@ -169,6 +190,68 @@ void HashIndexBuilder<T>::flush() {
     oSlots->saveToDisk();
     if (indexHeader->keyDataTypeID == LogicalTypeID::STRING) {
         inMemOverflowFile->flush();
+    }
+}
+
+template<typename T>
+void HashIndexBuilder<T>::rehashSlots(slot_id_t primarySlotId) {
+    std::vector<std::pair<SlotInfo, Slot<T>>> slots;
+    SlotInfo slotInfo{primarySlotId, SlotType::PRIMARY};
+    while (slotInfo.slotType == SlotType::PRIMARY || slotInfo.slotId != 0) {
+        auto slot = getSlot(slotInfo);
+        slots.emplace_back(slotInfo, *slot);
+        slotInfo.slotId = slot->header.nextOvfSlotId;
+        slotInfo.slotType = SlotType::OVF;
+    }
+
+    for (auto& [sI, slot] : slots) {
+        auto slotHeader = slot.header;
+        slot.header.reset();
+        for (auto entryPos = 0u; entryPos < HashIndexConstants::SLOT_CAPACITY; entryPos++) {
+            if (!slotHeader.isEntryValid(entryPos)) {
+                continue; // Skip invalid entries.
+            }
+            auto key = slot.entries[entryPos].data;
+            slot_id_t newSlotId;
+            if (indexHeader->keyDataTypeID == LogicalTypeID::STRING) {
+                auto str = inMemOverflowFile->readString((ku_string_t*)key);
+                newSlotId = getPrimarySlotIdForKey(*indexHeader, (const uint8_t*)str.c_str());
+            } else {
+                newSlotId = getPrimarySlotIdForKey(*indexHeader, key);
+            }
+            // copy key to newSlotId
+            copyEntryToSlot(newSlotId, key);
+        }
+    }
+}
+
+template<typename T>
+void HashIndexBuilder<T>::copyEntryToSlot(slot_id_t slotId, uint8_t* entry) {
+    SlotInfo currentSlotInfo{slotId, SlotType::PRIMARY};
+    Slot<T>* currentSlot = nullptr;
+    while (currentSlotInfo.slotType == SlotType::PRIMARY || currentSlotInfo.slotId != 0) {
+        currentSlot = getSlot(currentSlotInfo);
+        if (currentSlot->header.numEntries < HashIndexConstants::SLOT_CAPACITY) {
+            break;
+        }
+        currentSlotInfo.slotId = currentSlot->header.nextOvfSlotId;
+        currentSlotInfo.slotType = SlotType::OVF;
+    }
+
+    if (currentSlot->header.numEntries == HashIndexConstants::SLOT_CAPACITY) {
+        // Allocate a new oSlot and change the nextOvfSlotId.
+        auto ovfSlotId = allocateAOSlot();
+        currentSlot->header.nextOvfSlotId = ovfSlotId;
+        currentSlot = getSlot(SlotInfo{ovfSlotId, SlotType::OVF});
+    }
+
+    for (auto entryPos = 0u; entryPos < HashIndexConstants::SLOT_CAPACITY; entryPos++) {
+        if (!currentSlot->header.isEntryValid(entryPos)) {
+            memcpy(currentSlot->entries[entryPos].data, entry, indexHeader->numBytesPerEntry);
+            currentSlot->header.setEntryValid(entryPos);
+            currentSlot->header.numEntries++;
+            break;
+        }
     }
 }
 

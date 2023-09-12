@@ -217,14 +217,21 @@ static bool skipPropertyInFile(const Property& property) {
 expression_vector Binder::bindCopyNodeColumns(
     TableSchema* tableSchema, CopyDescription::FileType fileType) {
     expression_vector columnExpressions;
-    auto isCopyCSV = fileType == CopyDescription::FileType::CSV;
-    for (auto& property : tableSchema->properties) {
-        if (skipPropertyInFile(*property)) {
-            continue;
+    if (fileType == CopyDescription::FileType::TURTLE) {
+        columnExpressions.push_back(createVariable("SUBJECT", LogicalType{LogicalTypeID::STRING}));
+        columnExpressions.push_back(
+            createVariable("PREDICATE", LogicalType{LogicalTypeID::STRING}));
+        columnExpressions.push_back(createVariable("OBJECT", LogicalType{LogicalTypeID::STRING}));
+    } else {
+        auto isCopyCSV = fileType == CopyDescription::FileType::CSV;
+        for (auto& property : tableSchema->properties) {
+            if (skipPropertyInFile(*property)) {
+                continue;
+            }
+            auto dataType =
+                isCopyCSV ? *property->getDataType() : LogicalType{LogicalTypeID::ARROW_COLUMN};
+            columnExpressions.push_back(createVariable(property->getName(), dataType));
         }
-        auto dataType =
-            isCopyCSV ? *property->getDataType() : LogicalType{LogicalTypeID::ARROW_COLUMN};
-        columnExpressions.push_back(createVariable(property->getName(), dataType));
     }
     return columnExpressions;
 }

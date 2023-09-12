@@ -27,6 +27,8 @@ public:
         }
     }
 
+    inline uint64_t getCurNodeGroupIdx() const { return currentNodeGroupIdx; }
+
     void logCopyNodeWALRecord(storage::WAL* wal);
 
     void appendLocalNodeGroup(std::unique_ptr<storage::NodeGroup> localNodeGroup);
@@ -48,6 +50,7 @@ public:
     uint64_t currentNodeGroupIdx;
     // The sharedNodeGroup is to accumulate left data within local node groups in CopyNode ops.
     std::unique_ptr<storage::NodeGroup> sharedNodeGroup;
+    bool isCopyTurtle;
 };
 
 struct CopyNodeInfo {
@@ -90,7 +93,7 @@ public:
 
     static void writeAndResetNodeGroup(common::node_group_idx_t nodeGroupIdx,
         storage::PrimaryKeyIndexBuilder* pkIndex, common::column_id_t pkColumnID,
-        storage::NodeTable* table, storage::NodeGroup* nodeGroup);
+        storage::NodeTable* table, storage::NodeGroup* nodeGroup, bool isCopyTurtle);
 
 private:
     inline bool isCopyAllowed() const {
@@ -107,6 +110,24 @@ private:
     template<typename T>
     static uint64_t appendToPKIndex(storage::PrimaryKeyIndexBuilder* pkIndex,
         storage::ColumnChunk* chunk, common::offset_t startOffset, common::offset_t numNodes);
+
+    void calculatePKToAppend(
+        storage::PrimaryKeyIndexBuilder* pkIndex, common::ValueVector* vectorToAppend) {
+        auto selVector = std::make_unique<common::SelectionVector>(common::DEFAULT_VECTOR_CAPACITY);
+        selVector->resetSelectorToValuePosBuffer();
+        common::sel_t nextPos = 0;
+        common::offset_t result;
+        auto offset = sharedState->getCurNodeGroupIdx() + localNodeGroup->getNumNodes();
+        for (int i = 0; i < vectorToAppend->state->getNumSelectedValues(); i++) {
+            auto uriString = vectorToAppend->getValue<common::ku_string_t>(i).getAsString();
+            if (!pkIndex->lookup((int64_t)uriString.c_str(), result)) {
+                pkIndex->append(uriString.c_str(), offset++);
+                selVector->selectedPositions[nextPos++] = i;
+            }
+        }
+        selVector->selectedSize = nextPos;
+        vectorToAppend->state->selVector = std::move(selVector);
+    }
 
 private:
     std::shared_ptr<CopyNodeSharedState> sharedState;

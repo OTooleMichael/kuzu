@@ -79,6 +79,7 @@ public:
 public:
     // Reserves space for at least the specified number of elements.
     void bulkReserve(uint32_t numEntries);
+    void bulkReserveIfRequired(uint32_t numEntries_);
 
     // Note: append assumes that bulkRserve has been called before it and the index has reserved
     // enough space already.
@@ -106,6 +107,8 @@ private:
     Slot<T>* getSlot(const SlotInfo& slotInfo);
     uint32_t allocatePSlots(uint32_t numSlotsToAllocate);
     uint32_t allocateAOSlot();
+    void rehashSlots(slot_id_t primarySlotId);
+    void copyEntryToSlot(slot_id_t slotId, uint8_t* entry);
 
 private:
     std::unique_ptr<FileHandle> fileHandle;
@@ -148,6 +151,10 @@ public:
         keyDataTypeID == common::LogicalTypeID::INT64 ?
             hashIndexBuilderForInt64->bulkReserve(numEntries) :
             hashIndexBuilderForString->bulkReserve(numEntries);
+    }
+    inline void bulkReserveIfNecessary(uint32_t numEntries) {
+        assert(keyDataTypeID == common::LogicalTypeID::STRING);
+        hashIndexBuilderForString->bulkReserveIfRequired(numEntries);
     }
     // Note: append assumes that bulkRserve has been called before it and the index has reserved
     // enough space already.
