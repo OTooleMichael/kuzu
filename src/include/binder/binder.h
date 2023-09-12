@@ -7,6 +7,10 @@
 #include "parser/query/regular_query.h"
 
 namespace kuzu {
+namespace parser {
+struct CreateTableInfo;
+}
+
 namespace main {
 class ClientContext;
 }
@@ -73,44 +77,47 @@ private:
     std::shared_ptr<Expression> bindWhereExpression(
         const parser::ParsedExpression& parsedExpression);
 
-    common::table_id_t bindRelTableID(const std::string& tableName) const;
     common::table_id_t bindNodeTableID(const std::string& tableName) const;
 
     std::shared_ptr<Expression> createVariable(
         const std::string& name, const common::LogicalType& dataType);
 
     /*** bind DDL ***/
-    std::unique_ptr<BoundStatement> bindCreateNodeTableClause(const parser::Statement& statement);
-    std::unique_ptr<BoundStatement> bindCreateRelTableClause(const parser::Statement& statement);
-    std::unique_ptr<BoundStatement> bindCreateRdfGraphClause(const parser::Statement& statement);
-    std::unique_ptr<BoundStatement> bindDropTableClause(const parser::Statement& statement);
-    std::unique_ptr<BoundStatement> bindRenameTableClause(const parser::Statement& statement);
-    std::unique_ptr<BoundStatement> bindAddPropertyClause(const parser::Statement& statement);
-    std::unique_ptr<BoundStatement> bindDropPropertyClause(const parser::Statement& statement);
-    std::unique_ptr<BoundStatement> bindRenamePropertyClause(const parser::Statement& statement);
+    std::unique_ptr<BoundCreateTableInfo> bindCreateTableInfo(const parser::CreateTableInfo* info);
+    std::unique_ptr<BoundCreateTableInfo> bindCreateNodeTableInfo(
+        const parser::CreateTableInfo* info);
+    std::unique_ptr<BoundCreateTableInfo> bindCreateRelTableInfo(
+        const parser::CreateTableInfo* info);
+    std::unique_ptr<BoundCreateTableInfo> bindCreateRelTableGroupInfo(
+        const parser::CreateTableInfo* info);
+    std::unique_ptr<BoundCreateTableInfo> bindCreateRdfGraphInfo(
+        const parser::CreateTableInfo* info);
+    std::unique_ptr<BoundStatement> bindCreateTable(const parser::Statement& statement);
 
-    std::vector<std::unique_ptr<catalog::Property>> bindProperties(
-        std::vector<std::pair<std::string, std::string>> propertyNameDataTypes);
-    uint32_t bindPrimaryKey(const std::string& pkColName,
-        std::vector<std::pair<std::string, std::string>> propertyNameDataTypes);
+    std::unique_ptr<BoundStatement> bindDropTable(const parser::Statement& statement);
+    std::unique_ptr<BoundStatement> bindRenameTable(const parser::Statement& statement);
+    std::unique_ptr<BoundStatement> bindAddProperty(const parser::Statement& statement);
+    std::unique_ptr<BoundStatement> bindDropProperty(const parser::Statement& statement);
+    std::unique_ptr<BoundStatement> bindRenameProperty(const parser::Statement& statement);
+
     common::property_id_t bindPropertyName(
-        catalog::NodeTableSchema::TableSchema* tableSchema, const std::string& propertyName);
-    std::unique_ptr<common::LogicalType> bindDataType(const std::string& dataType);
+        catalog::TableSchema* tableSchema, const std::string& propertyName);
 
-    /*** bind copy from/to ***/
+    /*** bind copy ***/
     std::unique_ptr<BoundStatement> bindCopyFromClause(const parser::Statement& statement);
+    std::unique_ptr<BoundStatement> bindCopyNodeFrom(
+        std::unique_ptr<common::CopyDescription> copyDescription,
+        catalog::TableSchema* tableSchema);
+    std::unique_ptr<BoundStatement> bindCopyRelFrom(
+        std::unique_ptr<common::CopyDescription> copyDescription,
+        catalog::TableSchema* tableSchema);
+    expression_vector bindCopyNodeColumns(
+        catalog::TableSchema* tableSchema, common::CopyDescription::FileType fileType);
+    expression_vector bindCopyRelColumns(catalog::TableSchema* tableSchema);
     std::unique_ptr<BoundStatement> bindCopyToClause(const parser::Statement& statement);
-
-    std::vector<std::string> bindFilePaths(const std::vector<std::string>& filePaths);
-
     std::unique_ptr<common::CSVReaderConfig> bindParsingOptions(
-        const std::unordered_map<std::string, std::unique_ptr<parser::ParsedExpression>>*
+        const std::unordered_map<std::string, std::unique_ptr<parser::ParsedExpression>>&
             parsingOptions);
-    void bindStringParsingOptions(common::CSVReaderConfig& csvReaderConfig,
-        const std::string& optionName, std::string& optionValue);
-    char bindParsingOptionValue(std::string value);
-    common::CopyDescription::FileType bindFileType(const std::vector<std::string>& filePaths);
-    common::CopyDescription::FileType bindFileType(const std::string& filePath);
 
     /*** bind query ***/
     std::unique_ptr<BoundRegularQuery> bindQuery(const parser::RegularQuery& regularQuery);
@@ -122,6 +129,9 @@ private:
 
     /*** bind create macro ***/
     std::unique_ptr<BoundStatement> bindCreateMacro(const parser::Statement& statement);
+
+    /*** bind transaction ***/
+    std::unique_ptr<BoundStatement> bindTransaction(const parser::Statement& statement);
 
     /*** bind explain ***/
     std::unique_ptr<BoundStatement> bindExplain(const parser::Statement& statement);
@@ -228,9 +238,9 @@ private:
     // multiple statement.
     static void validateReadNotFollowUpdate(const NormalizedSingleQuery& singleQuery);
 
-    static void validateTableExist(const catalog::Catalog& _catalog, std::string& tableName);
-
-    static bool validateStringParsingOptionName(std::string& parsingOptionName);
+    void validateTableExist(const std::string& tableName);
+    // TODO(Xiyang): remove this validation once we refactor DDL.
+    void validateNodeRelTableExist(const std::string& tableName);
 
     static void validateNodeTableHasNoEdge(
         const catalog::Catalog& _catalog, common::table_id_t tableID);

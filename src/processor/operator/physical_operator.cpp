@@ -29,8 +29,11 @@ std::string PhysicalOperatorUtils::operatorTypeToString(PhysicalOperatorType ope
     case PhysicalOperatorType::COPY_NODE: {
         return "COPY_NODE";
     }
-    case PhysicalOperatorType::COPY_REL: {
-        return "COPY_REL";
+    case PhysicalOperatorType::COPY_REL_COLUMNS: {
+        return "COPY_REL_COLUMNS";
+    }
+    case PhysicalOperatorType::COPY_REL_LISTS: {
+        return "COPY_REL_LISTS";
     }
     case PhysicalOperatorType::CREATE_MACRO: {
         return "CREATE_MACRO";
@@ -85,6 +88,9 @@ std::string PhysicalOperatorUtils::operatorTypeToString(PhysicalOperatorType ope
     }
     case PhysicalOperatorType::HASH_JOIN_PROBE: {
         return "HASH_JOIN_PROBE";
+    }
+    case PhysicalOperatorType::INDEX_LOOKUP: {
+        return "INDEX_LOOKUP";
     }
     case PhysicalOperatorType::INDEX_SCAN: {
         return "INDEX_SCAN";
@@ -160,6 +166,9 @@ std::string PhysicalOperatorUtils::operatorTypeToString(PhysicalOperatorType ope
     }
     case PhysicalOperatorType::TOP_K_SCAN: {
         return "TOP_K_SCAN";
+    }
+    case PhysicalOperatorType::TRANSACTION: {
+        return "TRANSACTION";
     }
     case PhysicalOperatorType::ORDER_BY: {
         return "ORDER_BY";
@@ -237,7 +246,7 @@ void PhysicalOperator::initLocalState(ResultSet* resultSet_, ExecutionContext* c
     if (!isSource()) {
         children[0]->initLocalState(resultSet_, context);
     }
-    transaction = context->transaction;
+    transaction = context->clientContext->getActiveTransaction();
     resultSet = resultSet_;
     registerProfilingMetrics(context->profiler);
     initLocalStateInternal(resultSet_, context);

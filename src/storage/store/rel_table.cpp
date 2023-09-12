@@ -170,11 +170,8 @@ void DirectedRelTableData::insertRel(ValueVector* boundVector, ValueVector* nbrV
     // TODO(Guodong): We should pass a write transaction pointer down.
     if (!adjColumn->isNull(nodeOffset, transaction::Transaction::getDummyWriteTrx().get())) {
         throw RuntimeException(
-            StringUtils::string_format("Node(nodeOffset: {}, tableID: {}) in RelTable {} cannot "
+            StringUtils::string_format("Node in RelTable {} cannot "
                                        "have more than one neighbour in the {} direction.",
-                nodeOffset,
-                boundVector->getValue<nodeID_t>(boundVector->state->selVector->selectedPositions[0])
-                    .tableID,
                 tableID, RelDataDirectionUtils::relDataDirectionToString(direction)));
     }
     adjColumn->write(boundVector, nbrVector);
@@ -231,7 +228,8 @@ DirectedRelTableData::getListsUpdateIteratorsForDirection() {
 RelTable::RelTable(
     const Catalog& catalog, table_id_t tableID, MemoryManager& memoryManager, WAL* wal)
     : tableID{tableID}, wal{wal} {
-    auto tableSchema = catalog.getReadOnlyVersion()->getRelTableSchema(tableID);
+    auto tableSchema =
+        reinterpret_cast<RelTableSchema*>(catalog.getReadOnlyVersion()->getTableSchema(tableID));
     listsUpdatesStore = std::make_unique<ListsUpdatesStore>(memoryManager, *tableSchema);
     fwdRelTableData =
         std::make_unique<DirectedRelTableData>(tableID, tableSchema->getBoundTableID(FWD),

@@ -1,54 +1,38 @@
 #pragma once
 
+#include "binder/copy/bound_copy_from.h"
 #include "catalog/table_schema.h"
 #include "common/copier_config/copier_config.h"
+#include "common/table_type.h"
 #include "planner/logical_plan/logical_operator.h"
 
 namespace kuzu {
 namespace planner {
 
 class LogicalCopyFrom : public LogicalOperator {
-
 public:
-    LogicalCopyFrom(std::unique_ptr<common::CopyDescription> copyDescription,
-        catalog::TableSchema* tableSchema, binder::expression_vector columnExpressions,
-        std::shared_ptr<binder::Expression> nodeOffsetExpression,
-        std::shared_ptr<binder::Expression> outputExpression, bool orderPreserving_)
-        : LogicalOperator{LogicalOperatorType::COPY_FROM},
-          copyDescription{std::move(copyDescription)}, tableSchema{tableSchema},
-          columnExpressions{std::move(columnExpressions)}, nodeOffsetExpression{std::move(
-                                                               nodeOffsetExpression)},
-          outputExpression{std::move(outputExpression)}, orderPreserving_{orderPreserving_} {}
+    LogicalCopyFrom(std::unique_ptr<binder::BoundCopyFromInfo> info,
+        std::shared_ptr<binder::Expression> outputExpression)
+        : LogicalOperator{LogicalOperatorType::COPY_FROM}, info{std::move(info)},
+          outputExpression{std::move(outputExpression)} {}
 
-    inline std::string getExpressionsForPrinting() const override { return tableSchema->tableName; }
-
-    inline common::CopyDescription* getCopyDescription() const { return copyDescription.get(); }
-    inline catalog::TableSchema* getTableSchema() const { return tableSchema; }
-    inline binder::expression_vector getColumnExpressions() const { return columnExpressions; }
-    inline std::shared_ptr<binder::Expression> getNodeOffsetExpression() const {
-        return nodeOffsetExpression;
+    inline std::string getExpressionsForPrinting() const override {
+        return info->tableSchema->tableName;
     }
-    inline std::shared_ptr<binder::Expression> getOutputExpression() const {
-        return outputExpression;
-    }
-
-    inline bool orderPreserving() { return orderPreserving_; }
 
     void computeFactorizedSchema() override;
     void computeFlatSchema() override;
 
+    inline binder::BoundCopyFromInfo* getInfo() const { return info.get(); }
+    inline binder::Expression* getOutputExpression() const { return outputExpression.get(); }
+
     inline std::unique_ptr<LogicalOperator> copy() override {
-        return make_unique<LogicalCopyFrom>(copyDescription->copy(), tableSchema, columnExpressions,
-            nodeOffsetExpression, outputExpression, orderPreserving_);
+        return make_unique<LogicalCopyFrom>(info->copy(), outputExpression->copy());
     }
 
 private:
-    std::unique_ptr<common::CopyDescription> copyDescription;
-    catalog::TableSchema* tableSchema;
-    binder::expression_vector columnExpressions;
-    std::shared_ptr<binder::Expression> nodeOffsetExpression;
+    std::unique_ptr<binder::BoundCopyFromInfo> info;
     std::shared_ptr<binder::Expression> outputExpression;
-    bool orderPreserving_;
 };
 
 } // namespace planner

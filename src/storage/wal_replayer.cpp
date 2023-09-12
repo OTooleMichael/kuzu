@@ -1,11 +1,14 @@
 #include "storage/wal_replayer.h"
 
+#include "catalog/node_table_schema.h"
+#include "catalog/rel_table_schema.h"
 #include "storage/storage_manager.h"
 #include "storage/storage_utils.h"
 #include "storage/wal_replayer_utils.h"
 
 using namespace kuzu::catalog;
 using namespace kuzu::common;
+using namespace kuzu::storage;
 
 namespace kuzu {
 namespace storage {
@@ -70,6 +73,9 @@ void WALReplayer::replayWALRecord(WALRecord& walRecord) {
     } break;
     case WALRecordType::REL_TABLE_RECORD: {
         replayRelTableRecord(walRecord);
+    } break;
+    case WALRecordType::REL_TABLE_GROUP_RECORD: {
+        replayRelTableGroupRecord(walRecord);
     } break;
     case WALRecordType::RDF_GRAPH_RECORD: {
         replayRdfGraphRecord(walRecord);
@@ -160,14 +166,15 @@ void WALReplayer::replayCatalogRecord() {
     }
 }
 
-void WALReplayer::replayNodeTableRecord(const kuzu::storage::WALRecord& walRecord) {
+void WALReplayer::replayNodeTableRecord(const WALRecord& walRecord) {
     if (isCheckpoint) {
         // Since we log the NODE_TABLE_RECORD prior to logging CATALOG_RECORD, the catalog
         // file has not recovered yet. Thus, the catalog needs to read the catalog file for WAL
         // record.
         auto catalogForCheckpointing = getCatalogForRecovery(DBFileType::WAL_VERSION);
-        auto nodeTableSchema = catalogForCheckpointing->getReadOnlyVersion()->getNodeTableSchema(
-            walRecord.nodeTableRecord.tableID);
+        auto nodeTableSchema = reinterpret_cast<NodeTableSchema*>(
+            catalogForCheckpointing->getReadOnlyVersion()->getTableSchema(
+                walRecord.nodeTableRecord.tableID));
         WALReplayerUtils::createEmptyHashIndexFiles(nodeTableSchema, wal->getDirectory());
         if (!isRecovering) {
             // If we are not recovering, i.e., we are checkpointing during normal execution,
@@ -183,17 +190,18 @@ void WALReplayer::replayNodeTableRecord(const kuzu::storage::WALRecord& walRecor
     }
 }
 
-void WALReplayer::replayRelTableRecord(const kuzu::storage::WALRecord& walRecord, bool isRdf) {
+void WALReplayer::replayRelTableRecord(const WALRecord& walRecord, bool isRdf) {
     if (isCheckpoint) {
         // See comments for NODE_TABLE_RECORD.
         auto nodesStatistics = std::make_unique<NodesStatisticsAndDeletedIDs>(
             wal->getDirectory(), isRdf ? DBFileType::WAL_VERSION : DBFileType::ORIGINAL);
         auto maxNodeOffsetPerTable = nodesStatistics->getMaxNodeOffsetPerTable();
         auto catalogForCheckpointing = getCatalogForRecovery(DBFileType::WAL_VERSION);
+        auto relTableSchema = reinterpret_cast<RelTableSchema*>(
+            catalogForCheckpointing->getReadOnlyVersion()->getTableSchema(
+                walRecord.relTableRecord.tableID));
         WALReplayerUtils::createEmptyDBFilesForNewRelTable(
-            catalogForCheckpointing->getReadOnlyVersion()->getRelTableSchema(
-                walRecord.relTableRecord.tableID),
-            wal->getDirectory(), maxNodeOffsetPerTable);
+            relTableSchema, wal->getDirectory(), maxNodeOffsetPerTable);
         if (!isRecovering) {
             // See comments for NODE_TABLE_RECORD.
             storageManager->getRelsStore().createRelTable(
@@ -206,7 +214,11 @@ void WALReplayer::replayRelTableRecord(const kuzu::storage::WALRecord& walRecord
     }
 }
 
-void WALReplayer::replayRdfGraphRecord(const kuzu::storage::WALRecord& walRecord) {
+void WALReplayer::replayRelTableGroupRecord(const WALRecord& walRecord) {
+    // DO NOTHING
+}
+
+void WALReplayer::replayRdfGraphRecord(const WALRecord& walRecord) {
     if (isCheckpoint) {
         WALRecord nodeTableWALRecord = {.recordType = WALRecordType::NODE_TABLE_RECORD,
             .nodeTableRecord = walRecord.rdfGraphRecord.nodeTableRecord};
@@ -220,7 +232,7 @@ void WALReplayer::replayRdfGraphRecord(const kuzu::storage::WALRecord& walRecord
     }
 }
 
-void WALReplayer::replayOverflowFileNextBytePosRecord(const kuzu::storage::WALRecord& walRecord) {
+void WALReplayer::replayOverflowFileNextBytePosRecord(const WALRecord& walRecord) {
     // If we are recovering we do not replay OVERFLOW_FILE_NEXT_BYTE_POS_RECORD because
     // this record is intended for rolling back a transaction to ensure that we can
     // recover the overflow space allocated for the write transaction by calling
@@ -292,11 +304,12 @@ void WALReplayer::replayCopyNodeRecord(const kuzu::storage::WALRecord& walRecord
             // files have been changed during checkpoint. So the in memory
             // fileHandles are obsolete and should be reconstructed (e.g. since the numPages
             // have likely changed they need to reconstruct their page locks).
-            auto nodeTableSchema = catalog->getReadOnlyVersion()->getNodeTableSchema(tableID);
+            auto nodeTableSchema = reinterpret_cast<NodeTableSchema*>(
+                catalog->getReadOnlyVersion()->getTableSchema(tableID));
             storageManager->getNodesStore().getNodeTable(tableID)->initializePKIndex(
                 nodeTableSchema);
-            auto relTableSchemas = catalog->getAllRelTableSchemasContainBoundTable(tableID);
-            for (auto relTableSchema : relTableSchemas) {
+            for (auto schema : catalog->getAllRelTableSchemasContainBoundTable(tableID)) {
+                auto relTableSchema = reinterpret_cast<RelTableSchema*>(schema);
                 storageManager->getRelsStore()
                     .getRelTable(relTableSchema->tableID)
                     ->initializeData(relTableSchema);
@@ -318,12 +331,13 @@ void WALReplayer::replayCopyRelRecord(const kuzu::storage::WALRecord& walRecord)
     auto tableID = walRecord.copyRelRecord.tableID;
     if (isCheckpoint) {
         if (!isRecovering) {
+            auto relTableSchema = reinterpret_cast<RelTableSchema*>(
+                catalog->getReadOnlyVersion()->getTableSchema(tableID));
+            auto relTable = storageManager->getRelsStore().getRelTable(tableID);
             // CHECKPOINT.
-            storageManager->getRelsStore().getRelTable(tableID)->resetColumnsAndLists(
-                catalog->getReadOnlyVersion()->getRelTableSchema(tableID));
+            relTable->resetColumnsAndLists(relTableSchema);
             // See comments for COPY_NODE_RECORD.
-            storageManager->getRelsStore().getRelTable(tableID)->initializeData(
-                catalog->getReadOnlyVersion()->getRelTableSchema(tableID));
+            relTable->initializeData(relTableSchema);
             storageManager->getNodesStore().getNodesStatisticsAndDeletedIDs().setAdjListsAndColumns(
                 &storageManager->getRelsStore());
         } else {
@@ -336,15 +350,16 @@ void WALReplayer::replayCopyRelRecord(const kuzu::storage::WALRecord& walRecord)
             auto maxNodeOffsetPerTable =
                 nodesStatisticsAndDeletedIDsForCheckPointing->getMaxNodeOffsetPerTable();
             auto catalogForRecovery = getCatalogForRecovery(DBFileType::ORIGINAL);
+            auto relTableSchema = reinterpret_cast<RelTableSchema*>(
+                catalogForRecovery->getReadOnlyVersion()->getTableSchema(tableID));
             WALReplayerUtils::createEmptyDBFilesForNewRelTable(
-                catalogForRecovery->getReadOnlyVersion()->getRelTableSchema(tableID),
-                wal->getDirectory(), maxNodeOffsetPerTable);
+                relTableSchema, wal->getDirectory(), maxNodeOffsetPerTable);
         }
     } else {
         // ROLLBACK.
-        WALReplayerUtils::createEmptyDBFilesForNewRelTable(
-            catalog->getReadOnlyVersion()->getRelTableSchema(walRecord.relTableRecord.tableID),
-            wal->getDirectory(),
+        auto relTableSchema = reinterpret_cast<RelTableSchema*>(
+            catalog->getReadOnlyVersion()->getTableSchema(walRecord.relTableRecord.tableID));
+        WALReplayerUtils::createEmptyDBFilesForNewRelTable(relTableSchema, wal->getDirectory(),
             storageManager->getNodesStore()
                 .getNodesStatisticsAndDeletedIDs()
                 .getMaxNodeOffsetPerTable());
@@ -357,17 +372,16 @@ void WALReplayer::replayDropTableRecord(const kuzu::storage::WALRecord& walRecor
         if (!isRecovering) {
             auto tableSchema = catalog->getReadOnlyVersion()->getTableSchema(tableID);
             switch (tableSchema->getTableType()) {
-            case catalog::TableType::NODE: {
+            case TableType::NODE: {
                 storageManager->getNodesStore().removeNodeTable(tableID);
                 // TODO(Guodong): Do nothing for now. Should remove meta disk array and node groups.
                 WALReplayerUtils::removeHashIndexFile(
-                    catalog->getReadOnlyVersion()->getNodeTableSchema(tableID),
-                    wal->getDirectory());
+                    reinterpret_cast<NodeTableSchema*>(tableSchema), wal->getDirectory());
             } break;
-            case catalog::TableType::REL: {
+            case TableType::REL: {
                 storageManager->getRelsStore().removeRelTable(tableID);
                 WALReplayerUtils::removeDBFilesForRelTable(
-                    catalog->getReadOnlyVersion()->getRelTableSchema(tableID), wal->getDirectory());
+                    reinterpret_cast<RelTableSchema*>(tableSchema), wal->getDirectory());
             } break;
             default: {
                 throw NotImplementedException{"WALReplayer::replayDropTableRecord"};
@@ -381,16 +395,14 @@ void WALReplayer::replayDropTableRecord(const kuzu::storage::WALRecord& walRecor
             auto catalogForRecovery = getCatalogForRecovery(DBFileType::ORIGINAL);
             auto tableSchema = catalogForRecovery->getReadOnlyVersion()->getTableSchema(tableID);
             switch (tableSchema->getTableType()) {
-            case catalog::TableType::NODE: {
+            case TableType::NODE: {
                 // TODO(Guodong): Do nothing for now. Should remove meta disk array and node groups.
                 WALReplayerUtils::removeHashIndexFile(
-                    catalogForRecovery->getReadOnlyVersion()->getNodeTableSchema(tableID),
-                    wal->getDirectory());
+                    reinterpret_cast<NodeTableSchema*>(tableSchema), wal->getDirectory());
             } break;
-            case catalog::TableType::REL: {
+            case TableType::REL: {
                 WALReplayerUtils::removeDBFilesForRelTable(
-                    catalogForRecovery->getReadOnlyVersion()->getRelTableSchema(tableID),
-                    wal->getDirectory());
+                    reinterpret_cast<RelTableSchema*>(tableSchema), wal->getDirectory());
             } break;
             default: {
                 throw NotImplementedException{"WALReplayer::replayDropTableRecord"};
@@ -409,15 +421,15 @@ void WALReplayer::replayDropPropertyRecord(const kuzu::storage::WALRecord& walRe
         if (!isRecovering) {
             auto tableSchema = catalog->getReadOnlyVersion()->getTableSchema(tableID);
             switch (tableSchema->getTableType()) {
-            case catalog::TableType::NODE: {
+            case TableType::NODE: {
                 storageManager->getNodesStore().getNodeTable(tableID)->dropColumn(propertyID);
                 // TODO(Guodong): Do nothing for now. Should remove meta disk array and node groups.
             } break;
-            case catalog::TableType::REL: {
+            case TableType::REL: {
                 storageManager->getRelsStore().getRelTable(tableID)->removeProperty(
-                    propertyID, *catalog->getReadOnlyVersion()->getRelTableSchema(tableID));
+                    propertyID, *reinterpret_cast<RelTableSchema*>(tableSchema));
                 WALReplayerUtils::removeDBFilesForRelProperty(wal->getDirectory(),
-                    catalog->getReadOnlyVersion()->getRelTableSchema(tableID), propertyID);
+                    reinterpret_cast<RelTableSchema*>(tableSchema), propertyID);
             } break;
             default: {
                 throw NotImplementedException{"WALReplayer::replayDropPropertyRecord"};
@@ -431,13 +443,12 @@ void WALReplayer::replayDropPropertyRecord(const kuzu::storage::WALRecord& walRe
             auto catalogForRecovery = getCatalogForRecovery(DBFileType::WAL_VERSION);
             auto tableSchema = catalogForRecovery->getReadOnlyVersion()->getTableSchema(tableID);
             switch (tableSchema->getTableType()) {
-            case catalog::TableType::NODE: {
+            case TableType::NODE: {
                 // TODO(Guodong): Do nothing for now. Should remove meta disk array and node groups.
             } break;
-            case catalog::TableType::REL: {
+            case TableType::REL: {
                 WALReplayerUtils::removeDBFilesForRelProperty(wal->getDirectory(),
-                    catalogForRecovery->getReadOnlyVersion()->getRelTableSchema(tableID),
-                    propertyID);
+                    reinterpret_cast<RelTableSchema*>(tableSchema), propertyID);
             } break;
             default: {
                 throw NotImplementedException{"WALReplayer::replayDropPropertyRecord"};
@@ -454,13 +465,13 @@ void WALReplayer::replayAddPropertyRecord(const kuzu::storage::WALRecord& walRec
     auto propertyID = walRecord.addPropertyRecord.propertyID;
     if (isCheckpoint) {
         if (!isRecovering) {
-            auto tableSchema = catalog->getWriteVersion()->getNodeTableSchema(tableID);
+            auto tableSchema = catalog->getWriteVersion()->getTableSchema(tableID);
             auto property = tableSchema->getProperty(propertyID);
             switch (tableSchema->getTableType()) {
-            case catalog::TableType::NODE: {
+            case TableType::NODE: {
                 // Nothing to undo.
             } break;
-            case catalog::TableType::REL: {
+            case TableType::REL: {
                 WALReplayerUtils::renameDBFilesForRelProperty(wal->getDirectory(),
                     reinterpret_cast<RelTableSchema*>(tableSchema), propertyID);
                 storageManager->getRelsStore().getRelTable(tableID)->addProperty(
@@ -476,13 +487,12 @@ void WALReplayer::replayAddPropertyRecord(const kuzu::storage::WALRecord& walRec
                 // Nothing to undo.
                 return;
             }
-            auto tableSchema =
-                catalogForRecovery->getReadOnlyVersion()->getNodeTableSchema(tableID);
+            auto tableSchema = catalogForRecovery->getReadOnlyVersion()->getTableSchema(tableID);
             switch (tableSchema->getTableType()) {
-            case catalog::TableType::NODE: {
+            case TableType::NODE: {
                 // DO NOTHING.
             } break;
-            case catalog::TableType::REL: {
+            case TableType::REL: {
                 WALReplayerUtils::renameDBFilesForRelProperty(wal->getDirectory(),
                     reinterpret_cast<RelTableSchema*>(tableSchema), propertyID);
             } break;
@@ -494,10 +504,10 @@ void WALReplayer::replayAddPropertyRecord(const kuzu::storage::WALRecord& walRec
     } else {
         auto tableSchema = catalog->getReadOnlyVersion()->getTableSchema(tableID);
         switch (tableSchema->getTableType()) {
-        case catalog::TableType::NODE: {
+        case TableType::NODE: {
             storageManager->getNodesStore().getNodeTable(tableID)->dropColumn(propertyID);
         } break;
-        case catalog::TableType::REL: {
+        case TableType::REL: {
             // Nothing to undo.
         } break;
         default: {

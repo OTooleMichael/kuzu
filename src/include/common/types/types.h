@@ -17,7 +17,7 @@ namespace common {
 
 class FileInfo;
 
-using sel_t = uint32_t;
+using sel_t = uint16_t;
 using hash_t = uint64_t;
 using page_idx_t = uint32_t;
 using frame_idx_t = page_idx_t;
@@ -78,12 +78,13 @@ KUZU_API enum class LogicalTypeID : uint8_t {
     INT64 = 23,
     INT32 = 24,
     INT16 = 25,
-    DOUBLE = 26,
-    FLOAT = 27,
-    DATE = 28,
-    TIMESTAMP = 29,
-    INTERVAL = 30,
-    FIXED_LIST = 31,
+    INT8 = 26,
+    DOUBLE = 27,
+    FLOAT = 28,
+    DATE = 29,
+    TIMESTAMP = 30,
+    INTERVAL = 31,
+    FIXED_LIST = 32,
 
     INTERNAL_ID = 40,
 
@@ -105,9 +106,10 @@ enum class PhysicalTypeID : uint8_t {
     INT64 = 2,
     INT32 = 3,
     INT16 = 4,
-    DOUBLE = 5,
-    FLOAT = 6,
-    INTERVAL = 7,
+    INT8 = 5,
+    DOUBLE = 6,
+    FLOAT = 7,
+    INTERVAL = 8,
     INTERNAL_ID = 9,
     ARROW_COLUMN = 10,
 

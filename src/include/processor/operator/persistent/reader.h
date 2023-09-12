@@ -1,7 +1,7 @@
 #pragma once
 
+#include "processor/operator/persistent/reader_state.h"
 #include "processor/operator/physical_operator.h"
-#include "storage/copier/reader_state.h"
 
 namespace kuzu {
 namespace processor {
@@ -9,15 +9,15 @@ namespace processor {
 struct ReaderInfo {
     DataPos nodeOffsetPos;
     std::vector<DataPos> dataColumnsPos;
-    bool orderPreserving;
+    bool containsSerial;
 
     ReaderInfo(
-        const DataPos& nodeOffsetPos, std::vector<DataPos> dataColumnsPos, bool orderPreserving)
+        const DataPos& nodeOffsetPos, std::vector<DataPos> dataColumnsPos, bool containsSerial)
         : nodeOffsetPos{nodeOffsetPos}, dataColumnsPos{std::move(dataColumnsPos)},
-          orderPreserving{orderPreserving} {}
+          containsSerial{containsSerial} {}
     ReaderInfo(const ReaderInfo& other)
         : nodeOffsetPos{other.nodeOffsetPos}, dataColumnsPos{other.dataColumnsPos},
-          orderPreserving{other.orderPreserving} {}
+          containsSerial{other.containsSerial} {}
 
     inline uint32_t getNumColumns() const { return dataColumnsPos.size(); }
 
@@ -26,9 +26,8 @@ struct ReaderInfo {
 
 class Reader : public PhysicalOperator {
 public:
-    Reader(std::unique_ptr<ReaderInfo> info,
-        std::shared_ptr<storage::ReaderSharedState> sharedState, uint32_t id,
-        const std::string& paramsString)
+    Reader(std::unique_ptr<ReaderInfo> info, std::shared_ptr<ReaderSharedState> sharedState,
+        uint32_t id, const std::string& paramsString)
         : PhysicalOperator{PhysicalOperatorType::READER, id, paramsString}, info{std::move(info)},
           sharedState{std::move(sharedState)}, dataChunk{nullptr},
           nodeOffsetVector{nullptr}, readFunc{nullptr}, initFunc{nullptr}, readFuncData{nullptr} {}
@@ -39,30 +38,47 @@ public:
 
     inline bool isSource() const final { return true; }
 
+    inline ReaderInfo* getReaderInfo() const { return info.get(); }
+    inline ReaderSharedState* getSharedState() const { return sharedState.get(); }
+
     inline std::unique_ptr<PhysicalOperator> clone() final {
         return make_unique<Reader>(info->copy(), sharedState, getOperatorID(), paramsString);
     }
+
+    inline bool getContainsSerial() const { return info->containsSerial; }
 
 protected:
     bool getNextTuplesInternal(ExecutionContext* context) final;
 
 private:
-    void getNextNodeGroupInSerial();
-    void getNextNodeGroupInParallel();
+    template<ReaderSharedState::ReadMode READ_MODE>
+    void readNextDataChunk();
+
+    template<ReaderSharedState::ReadMode READ_MODE>
+    inline void lockForSerial() {
+        if constexpr (READ_MODE == ReaderSharedState::ReadMode::SERIAL) {
+            sharedState->mtx.lock();
+        }
+    }
+    template<ReaderSharedState::ReadMode READ_MODE>
+    inline void unlockForSerial() {
+        if constexpr (READ_MODE == ReaderSharedState::ReadMode::SERIAL) {
+            sharedState->mtx.unlock();
+        }
+    }
 
 private:
     std::unique_ptr<ReaderInfo> info;
-    std::shared_ptr<storage::ReaderSharedState> sharedState;
+    std::shared_ptr<ReaderSharedState> sharedState;
 
-    storage::LeftArrowArrays leftArrowArrays;
+    LeftArrowArrays leftArrowArrays;
 
-    std::unique_ptr<common::DataChunk> dataChunk = nullptr;
-    common::ValueVector* nodeOffsetVector = nullptr;
+    std::unique_ptr<common::DataChunk> dataChunk;
+    common::ValueVector* nodeOffsetVector;
 
-    storage::read_rows_func_t readFunc = nullptr;
-    storage::init_reader_data_func_t initFunc = nullptr;
-    // For parallel reading.
-    std::unique_ptr<storage::ReaderFunctionData> readFuncData = nullptr;
+    read_rows_func_t readFunc;
+    init_reader_data_func_t initFunc;
+    std::shared_ptr<ReaderFunctionData> readFuncData;
 };
 
 } // namespace processor

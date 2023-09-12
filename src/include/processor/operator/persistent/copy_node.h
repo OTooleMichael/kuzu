@@ -52,13 +52,12 @@ public:
 
 struct CopyNodeInfo {
     std::vector<DataPos> dataColumnPoses;
-    DataPos nodeOffsetPos;
     common::CopyDescription copyDesc;
     storage::NodeTable* table;
     storage::RelsStore* relsStore;
     catalog::Catalog* catalog;
     storage::WAL* wal;
-    bool orderPreserving;
+    bool containsSerial;
 };
 
 class CopyNode : public Sink {
@@ -67,22 +66,24 @@ public:
         std::unique_ptr<ResultSetDescriptor> resultSetDescriptor,
         std::unique_ptr<PhysicalOperator> child, uint32_t id, const std::string& paramsString);
 
-    inline void initLocalStateInternal(ResultSet* resultSet, ExecutionContext* context) override {
+    inline void initLocalStateInternal(ResultSet* resultSet, ExecutionContext* context) final {
         for (auto& arrowColumnPos : copyNodeInfo.dataColumnPoses) {
             dataColumnVectors.push_back(resultSet->getValueVector(arrowColumnPos).get());
         }
-        nodeOffsetVector = resultSet->getValueVector(copyNodeInfo.nodeOffsetPos).get();
         localNodeGroup =
             std::make_unique<storage::NodeGroup>(sharedState->tableSchema, &sharedState->copyDesc);
     }
 
-    inline void initGlobalStateInternal(ExecutionContext* context) override;
+    void initGlobalStateInternal(ExecutionContext* context) final;
 
-    void executeInternal(ExecutionContext* context) override;
+    void executeInternal(ExecutionContext* context) final;
+
+    static void sliceDataChunk(const common::DataChunk& dataChunk,
+        const std::vector<DataPos>& dataColumnPoses, common::offset_t offset);
 
     void finalize(ExecutionContext* context) override;
 
-    inline std::unique_ptr<PhysicalOperator> clone() override {
+    inline std::unique_ptr<PhysicalOperator> clone() final {
         return std::make_unique<CopyNode>(sharedState, copyNodeInfo, resultSetDescriptor->copy(),
             children[0]->clone(), id, paramsString);
     }
@@ -108,7 +109,6 @@ private:
         storage::ColumnChunk* chunk, common::offset_t startOffset, common::offset_t numNodes);
 
 private:
-    common::ValueVector* nodeOffsetVector;
     std::shared_ptr<CopyNodeSharedState> sharedState;
     CopyNodeInfo copyNodeInfo;
     std::vector<common::ValueVector*> dataColumnVectors;

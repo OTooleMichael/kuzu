@@ -28,7 +28,17 @@ public:
     std::unique_ptr<Statement> transform();
 
 private:
-    std::unique_ptr<Statement> transformOcStatement(CypherParser::OC_StatementContext& ctx);
+    std::unique_ptr<Statement> transformStatement(CypherParser::OC_StatementContext& ctx);
+
+    /* Copy From */
+    std::unique_ptr<Statement> transformCopyTo(CypherParser::KU_CopyTOContext& ctx);
+    std::unique_ptr<Statement> transformCopyFrom(CypherParser::KU_CopyFromContext& ctx);
+    std::unique_ptr<Statement> transformCopyFromByColumn(
+        CypherParser::KU_CopyFromByColumnContext& ctx);
+    std::vector<std::string> transformFilePaths(
+        std::vector<antlr4::tree::TerminalNode*> stringLiteral);
+    std::unordered_map<std::string, std::unique_ptr<ParsedExpression>> transformParsingOptions(
+        CypherParser::KU_ParsingOptionsContext& ctx);
 
     std::unique_ptr<RegularQuery> transformQuery(CypherParser::OC_QueryContext& ctx);
 
@@ -237,9 +247,13 @@ private:
 
     std::unique_ptr<Statement> transformAlterTable(CypherParser::KU_AlterTableContext& ctx);
 
-    std::unique_ptr<Statement> transformCreateNodeClause(CypherParser::KU_CreateNodeContext& ctx);
+    std::unique_ptr<Statement> transformCreateNodeTable(
+        CypherParser::KU_CreateNodeTableContext& ctx);
 
-    std::unique_ptr<Statement> transformCreateRelClause(CypherParser::KU_CreateRelContext& ctx);
+    std::unique_ptr<Statement> transformCreateRelTable(CypherParser::KU_CreateRelTableContext& ctx);
+
+    std::unique_ptr<Statement> transformCreateRelTableGroup(
+        CypherParser::KU_CreateRelTableGroupContext& ctx);
 
     std::unique_ptr<Statement> transformCreateRdfGraphClause(
         CypherParser::KU_CreateRdfGraphContext& ctx);
@@ -261,23 +275,13 @@ private:
     std::vector<std::pair<std::string, std::string>> transformPropertyDefinitions(
         CypherParser::KU_PropertyDefinitionsContext& ctx);
 
-    std::unique_ptr<Statement> transformCopyTo(CypherParser::KU_CopyTOContext& ctx);
-
-    std::unique_ptr<Statement> transformCopyFrom(CypherParser::KU_CopyFromCSVContext& ctx);
-
-    std::unique_ptr<Statement> transformCopyFromNPY(CypherParser::KU_CopyFromNPYContext& ctx);
-
     std::unique_ptr<Statement> transformStandaloneCall(CypherParser::KU_StandaloneCallContext& ctx);
 
     std::vector<std::string> transformPositionalArgs(CypherParser::KU_PositionalArgsContext& ctx);
 
     std::unique_ptr<Statement> transformCreateMacro(CypherParser::KU_CreateMacroContext& ctx);
 
-    std::vector<std::string> transformFilePaths(
-        std::vector<antlr4::tree::TerminalNode*> stringLiteral);
-
-    std::unordered_map<std::string, std::unique_ptr<ParsedExpression>> transformParsingOptions(
-        CypherParser::KU_ParsingOptionsContext& ctx);
+    std::unique_ptr<Statement> transformTransaction(CypherParser::KU_TransactionContext& ctx);
 
     std::string transformStringLiteral(antlr4::tree::TerminalNode& stringLiteral);
 

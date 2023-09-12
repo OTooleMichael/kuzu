@@ -140,6 +140,9 @@ void ValueVector::copyFromValue(uint64_t pos, const Value& value) {
     case PhysicalTypeID::INT16: {
         memcpy(dstValue, &value.val.int16Val, numBytesPerValue);
     } break;
+    case PhysicalTypeID::INT8: {
+        memcpy(dstValue, &value.val.int8Val, numBytesPerValue);
+    } break;
     case PhysicalTypeID::DOUBLE: {
         memcpy(dstValue, &value.val.doubleVal, numBytesPerValue);
     } break;
@@ -162,7 +165,42 @@ void ValueVector::copyFromValue(uint64_t pos, const Value& value) {
         *listEntry = ListVector::addList(this, numValues);
         auto dstDataVector = ListVector::getDataVector(this);
         for (auto i = 0u; i < numValues; ++i) {
-            dstDataVector->copyFromValue(listEntry->offset + i, *NestedVal::getChildVal(&value, i));
+            auto childVal = NestedVal::getChildVal(&value, i);
+            dstDataVector->setNull(listEntry->offset + i, childVal->isNull());
+            if (!childVal->isNull()) {
+                dstDataVector->copyFromValue(
+                    listEntry->offset + i, *NestedVal::getChildVal(&value, i));
+            }
+        }
+    } break;
+    case PhysicalTypeID::FIXED_LIST: {
+        auto numValues = NestedVal::getChildrenSize(&value);
+        auto childType = FixedListType::getChildType(value.getDataType());
+        auto numBytesPerChildValue = getDataTypeSize(*childType);
+        auto bufferToWrite = valueBuffer.get() + pos * numBytesPerValue;
+        for (auto i = 0u; i < numValues; i++) {
+            auto val = NestedVal::getChildVal(&value, i);
+            switch (childType->getPhysicalType()) {
+            case PhysicalTypeID::INT64: {
+                memcpy(bufferToWrite, &val->getValueReference<int64_t>(), numBytesPerChildValue);
+            } break;
+            case PhysicalTypeID::INT32: {
+                memcpy(bufferToWrite, &val->getValueReference<int32_t>(), numBytesPerChildValue);
+            } break;
+            case PhysicalTypeID::INT16: {
+                memcpy(bufferToWrite, &val->getValueReference<int16_t>(), numBytesPerChildValue);
+            } break;
+            case PhysicalTypeID::DOUBLE: {
+                memcpy(bufferToWrite, &val->getValueReference<double_t>(), numBytesPerChildValue);
+            } break;
+            case PhysicalTypeID::FLOAT: {
+                memcpy(bufferToWrite, &val->getValueReference<float_t>(), numBytesPerChildValue);
+            } break;
+            default: {
+                throw NotImplementedException{"FixedListColumnChunk::write"};
+            }
+            }
+            bufferToWrite += numBytesPerChildValue;
         }
     } break;
     case PhysicalTypeID::STRUCT: {
@@ -190,6 +228,9 @@ std::unique_ptr<Value> ValueVector::getAsValue(uint64_t pos) {
     } break;
     case PhysicalTypeID::INT16: {
         value->val.int16Val = getValue<int16_t>(pos);
+    } break;
+    case PhysicalTypeID::INT8: {
+        value->val.int8Val = getValue<int8_t>(pos);
     } break;
     case PhysicalTypeID::DOUBLE: {
         value->val.doubleVal = getValue<double_t>(pos);
@@ -293,9 +334,16 @@ void ValueVector::initializeValueBuffer() {
 
 void ArrowColumnVector::setArrowColumn(
     ValueVector* vector, std::shared_ptr<arrow::ChunkedArray> column) {
+    assert(vector->dataType.getLogicalTypeID() == LogicalTypeID::ARROW_COLUMN);
     auto arrowColumnBuffer =
         reinterpret_cast<ArrowColumnAuxiliaryBuffer*>(vector->auxiliaryBuffer.get());
     arrowColumnBuffer->column = std::move(column);
+}
+
+void ArrowColumnVector::slice(ValueVector* vector, offset_t offset) {
+    auto arrowColumnBuffer =
+        reinterpret_cast<ArrowColumnAuxiliaryBuffer*>(vector->auxiliaryBuffer.get());
+    setArrowColumn(vector, arrowColumnBuffer->column->Slice((int64_t)offset));
 }
 
 template void ValueVector::setValue<nodeID_t>(uint32_t pos, nodeID_t val);
@@ -303,6 +351,7 @@ template void ValueVector::setValue<bool>(uint32_t pos, bool val);
 template void ValueVector::setValue<int64_t>(uint32_t pos, int64_t val);
 template void ValueVector::setValue<int32_t>(uint32_t pos, int32_t val);
 template void ValueVector::setValue<int16_t>(uint32_t pos, int16_t val);
+template void ValueVector::setValue<int8_t>(uint32_t pos, int8_t val);
 template void ValueVector::setValue<double_t>(uint32_t pos, double_t val);
 template void ValueVector::setValue<float_t>(uint32_t pos, float_t val);
 template void ValueVector::setValue<hash_t>(uint32_t pos, hash_t val);

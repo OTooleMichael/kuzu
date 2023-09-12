@@ -21,11 +21,13 @@ add_library(kuzu_planner_plan_operator
         append_set.cpp
         append_unwind.cpp
         plan_copy.cpp
+        plan_ddl.cpp
         plan_join_order.cpp
         plan_projection.cpp
         plan_read.cpp
         plan_single_query.cpp
         plan_subquery.cpp
+        plan_transaction.cpp
         plan_update.cpp)
 
 set(ALL_OBJECT_FILES

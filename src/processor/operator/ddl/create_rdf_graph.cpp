@@ -1,5 +1,6 @@
 #include "processor/operator/ddl/create_rdf_graph.h"
 
+#include "catalog/rdf_graph_schema.h"
 #include "common/string_utils.h"
 #include "storage/storage_manager.h"
 
@@ -9,9 +10,10 @@ namespace kuzu {
 namespace processor {
 
 void CreateRdfGraph::executeDDLInternal() {
-    auto extraInfo = (binder::BoundRdfExtraCreateTableInfo*)info->extraInfo.get();
+    auto extraInfo = (binder::BoundExtraCreateRdfGraphInfo*)info->extraInfo.get();
     auto nodeInfo = extraInfo->nodeInfo.get();
-    for (auto& property : nodeInfo->properties) {
+    auto extraNodeInfo = (binder::BoundExtraCreateNodeTableInfo*)nodeInfo->extraInfo.get();
+    for (auto& property : extraNodeInfo->properties) {
         property->setMetadataDAHInfo(
             storageManager->createMetadataDAHInfo(*property->getDataType()));
     }

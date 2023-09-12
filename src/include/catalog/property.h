@@ -1,6 +1,5 @@
 #pragma once
 
-#include "common/file_utils.h"
 #include "common/types/types.h"
 
 namespace kuzu {
@@ -35,8 +34,12 @@ public:
 
 class Property {
 public:
+    // TODO: these should be guarded as reserved property names.
     static constexpr std::string_view REL_FROM_PROPERTY_NAME = "_FROM_";
     static constexpr std::string_view REL_TO_PROPERTY_NAME = "_TO_";
+    static constexpr std::string_view OFFSET_NAME = "_OFFSET_";
+    static constexpr std::string_view REL_BOUND_OFFSET_NAME = "_BOUND_OFFSET_";
+    static constexpr std::string_view REL_NBR_OFFSET_NAME = "_NBR_OFFSET_";
 
     Property(std::string name, std::unique_ptr<common::LogicalType> dataType)
         : Property{std::move(name), std::move(dataType), common::INVALID_PROPERTY_ID,

@@ -165,12 +165,12 @@ KUZU_C_API typedef enum {
     KUZU_INT64 = 23,
     KUZU_INT32 = 24,
     KUZU_INT16 = 25,
-    KUZU_DOUBLE = 26,
-    KUZU_FLOAT = 27,
-    KUZU_DATE = 28,
-    KUZU_TIMESTAMP = 29,
-    KUZU_INTERVAL = 30,
-    KUZU_FIXED_LIST = 31,
+    KUZU_DOUBLE = 27,
+    KUZU_FLOAT = 28,
+    KUZU_DATE = 29,
+    KUZU_TIMESTAMP = 30,
+    KUZU_INTERVAL = 31,
+    KUZU_FIXED_LIST = 32,
     KUZU_INTERNAL_ID = 40,
     KUZU_ARROW_COLUMN = 41,
     // variable size types
@@ -217,26 +217,6 @@ KUZU_C_API kuzu_connection* kuzu_connection_init(kuzu_database* database);
  * @param connection The connection instance to destroy.
  */
 KUZU_C_API void kuzu_connection_destroy(kuzu_connection* connection);
-/**
- * @brief Begins a read-only transaction in the given connection.
- * @param connection The connection instance to begin read-only transaction.
- */
-KUZU_C_API void kuzu_connection_begin_read_only_transaction(kuzu_connection* connection);
-/**
- * @brief Begins a write transaction in the given connection.
- * @param connection The connection instance to begin write transaction.
- */
-KUZU_C_API void kuzu_connection_begin_write_transaction(kuzu_connection* connection);
-/**
- * @brief Commits the current transaction.
- * @param connection The connection instance to commit transaction.
- */
-KUZU_C_API void kuzu_connection_commit(kuzu_connection* connection);
-/**
- * @brief Rollbacks the current transaction.
- * @param connection The connection instance to rollback transaction.
- */
-KUZU_C_API void kuzu_connection_rollback(kuzu_connection* connection);
 /**
  * @brief Sets the maximum number of threads to use for executing queries.
  * @param connection The connection instance to set max number of threads for execution.

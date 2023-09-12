@@ -1,8 +1,13 @@
 #include "catalog/catalog.h"
 
+#include "catalog/node_table_schema.h"
+#include "catalog/rdf_graph_schema.h"
+#include "catalog/rel_table_group_schema.h"
+#include "catalog/rel_table_schema.h"
 #include "common/ser_deser.h"
 #include "common/string_utils.h"
-#include "storage/storage_utils.h"
+#include "storage/wal/wal.h"
+#include "transaction/transaction_action.h"
 
 using namespace kuzu::common;
 using namespace kuzu::storage;
@@ -49,6 +54,19 @@ table_id_t Catalog::addRelTableSchema(const binder::BoundCreateTableInfo& info) 
     initCatalogContentForWriteTrxIfNecessary();
     auto tableID = catalogContentForWriteTrx->addRelTableSchema(info);
     wal->logRelTableRecord(tableID);
+    return tableID;
+}
+
+common::table_id_t Catalog::addRelTableGroupSchema(const binder::BoundCreateTableInfo& info) {
+    initCatalogContentForWriteTrxIfNecessary();
+    auto tableID = catalogContentForWriteTrx->addRelTableGroupSchema(info);
+    auto relTableGroupSchema =
+        (RelTableGroupSchema*)catalogContentForWriteTrx->getTableSchema(tableID);
+    // TODO(Ziyi): remove this when we can log variable size record. See also wal_record.h
+    for (auto relTableID : relTableGroupSchema->getRelTableIDs()) {
+        wal->logRelTableRecord(relTableID);
+    }
+    wal->logRelTableGroupRecord(tableID, relTableGroupSchema->getRelTableIDs());
     return tableID;
 }
 
@@ -102,15 +120,18 @@ void Catalog::renameProperty(
     catalogContentForWriteTrx->getTableSchema(tableID)->renameProperty(propertyID, newName);
 }
 
-std::unordered_set<RelTableSchema*> Catalog::getAllRelTableSchemasContainBoundTable(
+std::unordered_set<TableSchema*> Catalog::getAllRelTableSchemasContainBoundTable(
     table_id_t boundTableID) const {
-    std::unordered_set<RelTableSchema*> relTableSchemas;
-    auto nodeTableSchema = getReadOnlyVersion()->getNodeTableSchema(boundTableID);
+    std::unordered_set<TableSchema*> relTableSchemas;
+    auto nodeTableSchema =
+        reinterpret_cast<NodeTableSchema*>(getReadOnlyVersion()->getTableSchema(boundTableID));
     for (auto& fwdRelTableID : nodeTableSchema->getFwdRelTableIDSet()) {
-        relTableSchemas.insert(getReadOnlyVersion()->getRelTableSchema(fwdRelTableID));
+        relTableSchemas.insert(
+            reinterpret_cast<RelTableSchema*>(getReadOnlyVersion()->getTableSchema(fwdRelTableID)));
     }
     for (auto& bwdRelTableID : nodeTableSchema->getBwdRelTableIDSet()) {
-        relTableSchemas.insert(getReadOnlyVersion()->getRelTableSchema(bwdRelTableID));
+        relTableSchemas.insert(
+            reinterpret_cast<RelTableSchema*>(getReadOnlyVersion()->getTableSchema(bwdRelTableID)));
     }
     return relTableSchemas;
 }

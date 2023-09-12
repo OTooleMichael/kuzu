@@ -32,6 +32,15 @@ public:
     inline bool containTable(const std::string& name) const {
         return tableNameToIDMap.contains(name);
     }
+    inline bool containNodeTable(const std::string& tableName) const {
+        return containTable(tableName, common::TableType::NODE);
+    }
+    inline bool containRelTable(const std::string& tableName) const {
+        return containTable(tableName, common::TableType::REL);
+    }
+    inline bool containRelGroup(const std::string& tableName) const {
+        return containTable(tableName, common::TableType::REL_GROUP);
+    }
     inline std::string getTableName(common::table_id_t tableID) const {
         assert(tableSchemas.contains(tableID));
         return getTableSchema(tableID)->tableName;
@@ -40,20 +49,9 @@ public:
         assert(tableSchemas.contains(tableID));
         return tableSchemas.at(tableID).get();
     }
-    inline NodeTableSchema* getNodeTableSchema(common::table_id_t tableID) const {
-        return reinterpret_cast<NodeTableSchema*>(getTableSchema(tableID));
-    }
-    inline RelTableSchema* getRelTableSchema(common::table_id_t tableID) const {
-        return reinterpret_cast<RelTableSchema*>(getTableSchema(tableID));
-    }
     inline common::table_id_t getTableID(const std::string& tableName) const {
         assert(tableNameToIDMap.contains(tableName));
         return tableNameToIDMap.at(tableName);
-    }
-
-    inline bool isSingleMultiplicityInDirection(
-        common::table_id_t tableID, common::RelDataDirection direction) const {
-        return getRelTableSchema(tableID)->isSingleMultiplicityInDirection(direction);
     }
 
     /**
@@ -61,11 +59,8 @@ public:
      */
     common::table_id_t addNodeTableSchema(const binder::BoundCreateTableInfo& info);
     common::table_id_t addRelTableSchema(const binder::BoundCreateTableInfo& info);
+    common::table_id_t addRelTableGroupSchema(const binder::BoundCreateTableInfo& info);
     common::table_id_t addRdfGraphSchema(const binder::BoundCreateTableInfo& info);
-
-    bool containNodeTable(const std::string& tableName) const;
-
-    bool containRelTable(const std::string& tableName) const;
 
     /**
      * Node and Rel property functions.
@@ -80,13 +75,17 @@ public:
         return tableSchemas.at(tableID)->getProperties();
     }
     inline std::vector<common::table_id_t> getNodeTableIDs() const {
-        return getTableIDsByType(TableType::NODE);
+        return getTableIDs(common::TableType::NODE);
     }
     inline std::vector<common::table_id_t> getRelTableIDs() const {
-        return getTableIDsByType(TableType::REL);
+        return getTableIDs(common::TableType::REL);
     }
-    std::vector<NodeTableSchema*> getNodeTableSchemas() const;
-    std::vector<RelTableSchema*> getRelTableSchemas() const;
+    inline std::vector<TableSchema*> getNodeTableSchemas() const {
+        return getTableSchemas(common::TableType::NODE);
+    }
+    inline std::vector<TableSchema*> getRelTableSchemas() const {
+        return getTableSchemas(common::TableType::REL);
+    }
 
     inline bool containMacro(const std::string& macroName) const {
         return macros.contains(macroName);
@@ -119,7 +118,9 @@ private:
 
     void registerBuiltInFunctions();
 
-    std::vector<common::table_id_t> getTableIDsByType(TableType tableType) const;
+    bool containTable(const std::string& tableName, common::TableType tableType) const;
+    std::vector<TableSchema*> getTableSchemas(common::TableType tableType) const;
+    std::vector<common::table_id_t> getTableIDs(common::TableType tableType) const;
 
 private:
     // TODO(Guodong): I don't think it's necessary to keep separate maps for node and rel tables.

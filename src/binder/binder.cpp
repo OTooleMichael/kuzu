@@ -2,6 +2,7 @@
 
 #include "binder/bound_statement_rewriter.h"
 #include "binder/expression/variable_expression.h"
+#include "catalog/rel_table_schema.h"
 #include "common/string_utils.h"
 
 using namespace kuzu::common;
@@ -14,14 +15,8 @@ namespace binder {
 std::unique_ptr<BoundStatement> Binder::bind(const Statement& statement) {
     std::unique_ptr<BoundStatement> boundStatement;
     switch (statement.getStatementType()) {
-    case StatementType::CREATE_NODE_TABLE: {
-        boundStatement = bindCreateNodeTableClause(statement);
-    } break;
-    case StatementType::CREATE_REL_TABLE: {
-        boundStatement = bindCreateRelTableClause(statement);
-    } break;
-    case StatementType::CREATE_RDF_GRAPH: {
-        boundStatement = bindCreateRdfGraphClause(statement);
+    case StatementType::CREATE_TABLE: {
+        boundStatement = bindCreateTable(statement);
     } break;
     case StatementType::COPY_FROM: {
         boundStatement = bindCopyFromClause(statement);
@@ -30,19 +25,19 @@ std::unique_ptr<BoundStatement> Binder::bind(const Statement& statement) {
         boundStatement = bindCopyToClause(statement);
     } break;
     case StatementType::DROP_TABLE: {
-        boundStatement = bindDropTableClause(statement);
+        boundStatement = bindDropTable(statement);
     } break;
     case StatementType::RENAME_TABLE: {
-        boundStatement = bindRenameTableClause(statement);
+        boundStatement = bindRenameTable(statement);
     } break;
     case StatementType::ADD_PROPERTY: {
-        boundStatement = bindAddPropertyClause(statement);
+        boundStatement = bindAddProperty(statement);
     } break;
     case StatementType::DROP_PROPERTY: {
-        boundStatement = bindDropPropertyClause(statement);
+        boundStatement = bindDropProperty(statement);
     } break;
     case StatementType::RENAME_PROPERTY: {
-        boundStatement = bindRenamePropertyClause(statement);
+        boundStatement = bindRenameProperty(statement);
     } break;
     case StatementType::QUERY: {
         boundStatement = bindQuery((const RegularQuery&)statement);
@@ -55,6 +50,9 @@ std::unique_ptr<BoundStatement> Binder::bind(const Statement& statement) {
     } break;
     case StatementType::CREATE_MACRO: {
         boundStatement = bindCreateMacro(statement);
+    } break;
+    case StatementType::TRANSACTION: {
+        boundStatement = bindTransaction(statement);
     } break;
     default:
         throw NotImplementedException("Binder::bind");
@@ -69,18 +67,12 @@ std::shared_ptr<Expression> Binder::bindWhereExpression(const ParsedExpression& 
     return whereExpression;
 }
 
-table_id_t Binder::bindRelTableID(const std::string& tableName) const {
-    if (!catalog.getReadOnlyVersion()->containRelTable(tableName)) {
-        throw BinderException("Rel table " + tableName + " does not exist.");
-    }
-    return catalog.getReadOnlyVersion()->getTableID(tableName);
-}
-
 table_id_t Binder::bindNodeTableID(const std::string& tableName) const {
-    if (!catalog.getReadOnlyVersion()->containNodeTable(tableName)) {
+    auto catalogContent = catalog.getReadOnlyVersion();
+    if (!catalogContent->containNodeTable(tableName)) {
         throw BinderException("Node table " + tableName + " does not exist.");
     }
-    return catalog.getReadOnlyVersion()->getTableID(tableName);
+    return catalogContent->getTableID(tableName);
 }
 
 std::shared_ptr<Expression> Binder::createVariable(
@@ -166,24 +158,22 @@ void Binder::validateReadNotFollowUpdate(const NormalizedSingleQuery& singleQuer
     }
 }
 
-void Binder::validateTableExist(const Catalog& _catalog, std::string& tableName) {
-    if (!_catalog.getReadOnlyVersion()->containNodeTable(tableName) &&
-        !_catalog.getReadOnlyVersion()->containRelTable(tableName)) {
-        throw BinderException("Node/Rel " + tableName + " does not exist.");
+void Binder::validateTableExist(const std::string& tableName) {
+    if (!catalog.getReadOnlyVersion()->containTable(tableName)) {
+        throw BinderException("Table " + tableName + " does not exist.");
     }
 }
 
-bool Binder::validateStringParsingOptionName(std::string& parsingOptionName) {
-    for (auto i = 0; i < std::size(CopyConstants::STRING_CSV_PARSING_OPTIONS); i++) {
-        if (parsingOptionName == CopyConstants::STRING_CSV_PARSING_OPTIONS[i]) {
-            return true;
-        }
+void Binder::validateNodeRelTableExist(const std::string& tableName) {
+    if (!catalog.getReadOnlyVersion()->containNodeTable(tableName) &&
+        !catalog.getReadOnlyVersion()->containRelTable(tableName)) {
+        throw BinderException("Table " + tableName + " does not exist.");
     }
-    return false;
 }
 
 void Binder::validateNodeTableHasNoEdge(const Catalog& _catalog, table_id_t tableID) {
-    for (auto& relTableSchema : _catalog.getReadOnlyVersion()->getRelTableSchemas()) {
+    for (auto& tableSchema : _catalog.getReadOnlyVersion()->getRelTableSchemas()) {
+        auto relTableSchema = reinterpret_cast<RelTableSchema*>(tableSchema);
         if (relTableSchema->isSrcOrDstTable(tableID)) {
             throw BinderException(StringUtils::string_format(
                 "Cannot delete a node table with edges. It is on the edges of rel: {}.",
