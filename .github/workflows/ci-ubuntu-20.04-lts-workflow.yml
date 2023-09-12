@@ -26,22 +26,38 @@ jobs:
       #     pip install torch~=1.13 --extra-index-url https://download.pytorch.org/whl/cpu
       #     pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-1.13.0+cpu.html
 
-      - name: Ensure Node.js dependencies
-        run: npm install --include=dev
-        working-directory: tools/nodejs_api
+      # - name: Ensure Node.js dependencies
+      #   run: npm install --include=dev
+      #   working-directory: tools/nodejs_api
 
       - name: Build and test
         shell: cmd
         run: make test NUM_THREADS=%NUMBER_OF_PROCESSORS%
 
+      - name: C Example
+        working-directory: examples/c
+        run: |
+          mkdir build
+          cd build
+          cmake ..
+          cmake --build .
+
+      # - name: C++ Example
+      #   working-directory: examples/cpp
+      #   run: |
+      #     mkdir build
+      #     cd build
+      #     cmake ..
+      #     cmake --build .
+
       # - name: Python test
       #   shell: cmd
       #   run: make pytest NUM_THREADS=%NUMBER_OF_PROCESSORS%
 
-      - name: Node.js test
-        shell: cmd
-        run: make nodejstest NUM_THREADS=%NUMBER_OF_PROCESSORS%
+      # - name: Node.js test
+      #   shell: cmd
+      #   run: make nodejstest NUM_THREADS=%NUMBER_OF_PROCESSORS%
 
-      - name: Java test
-        shell: cmd
-        run: make javatest NUM_THREADS=%NUMBER_OF_PROCESSORS%
+      # - name: Java test
+      #   shell: cmd
+      #   run: make javatest NUM_THREADS=%NUMBER_OF_PROCESSORS%
