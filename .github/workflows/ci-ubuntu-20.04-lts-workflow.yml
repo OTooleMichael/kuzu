@@ -31,7 +31,7 @@ jobs:
         working-directory: tools/nodejs_api
 
       - name: Build and test
-        run: make test NUM_THREADS=$(nproc)
+        run: make release NUM_THREADS=$(nproc)
 
       - name: C Example
         working-directory: examples/c
@@ -85,7 +85,7 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Ensure python dependencies
+      - name: Ensure Python dependencies
         run: |
           pip install torch~=2.0.0 --extra-index-url https://download.pytorch.org/whl/cpu
           pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-2.0.0+cpu.html
@@ -95,7 +95,7 @@ jobs:
         working-directory: tools/nodejs_api
 
       - name: Build and test
-        run: make test NUM_THREADS=$(sysctl -n hw.physicalcpu)
+        run: make release NUM_THREADS=$(sysctl -n hw.physicalcpu)
 
       - name: C Example
         working-directory: examples/c
