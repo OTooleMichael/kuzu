@@ -1,16 +1,8 @@
 #pragma once
 
 #include "common/data_chunk/data_chunk.h"
-#include "common/types/internal_id_t.h"
-#include "common/vector/value_vector.h"
+#include "common/string_utils.h"
 #include "serd.h"
-#include "spdlog/spdlog.h"
-
-using namespace kuzu::common;
-
-namespace spdlog {
-class logger;
-}
 
 namespace kuzu {
 namespace storage {
@@ -21,9 +13,7 @@ public:
 
     ~RDFReader();
 
-    offset_t read(DataChunk* dataChunkToRead);
-
-    inline offset_t getFileSize() const { return fileSize; }
+    common::offset_t read(common::DataChunk* dataChunkToRead);
 
 private:
     static SerdStatus errorHandle(void* handle, const SerdError* error);
@@ -35,13 +25,12 @@ private:
 private:
     const std::string filePath;
     FILE* fp;
-    offset_t fileSize;
     SerdReader* reader;
-    offset_t numLinesRead;
+    common::offset_t numLinesRead;
     SerdStatus status;
-    ValueVector* subjectVector;
-    ValueVector* predicateVector;
-    ValueVector* objectVector;
+    common::ValueVector* subjectVector;
+    common::ValueVector* predicateVector;
+    common::ValueVector* objectVector;
 };
 
 } // namespace storage

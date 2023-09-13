@@ -15,14 +15,8 @@ namespace storage {
 RDFReader::RDFReader(std::string filePath)
     : filePath{std::move(filePath)}, subjectVector{nullptr}, predicateVector{nullptr},
       objectVector{nullptr}, numLinesRead{0}, status{SERD_SUCCESS} {
-    // TODO(gaurav): Add support for fopen in FileUtils and use that here.
     std::string fileName = this->filePath.substr(this->filePath.find_last_of("/\\") + 1);
     fp = fopen(this->filePath.c_str(), "rb");
-
-    struct stat fileStatus {};
-    stat(this->filePath.c_str(), &fileStatus);
-    fileSize = fileStatus.st_size;
-
     reader =
         serd_reader_new(SERD_TURTLE, this, nullptr, nullptr, nullptr, handleStatements, nullptr);
     serd_reader_set_strict(reader, false /* strict */);
@@ -31,7 +25,7 @@ RDFReader::RDFReader(std::string filePath)
 }
 
 RDFReader::~RDFReader() {
-    // serd_reader_free(reader);
+    serd_reader_free(reader);
     fclose(fp);
 }
 
@@ -40,8 +34,9 @@ SerdStatus RDFReader::errorHandle(void* handle, const SerdError* error) {
         return error->status;
     }
     if (error->status != SERD_SUCCESS && error->status != SERD_FAILURE) {
-        throw common::CopyException(fmt::format("{} while reading rdf file at line {} and col {}",
-            (char*)serd_strerror(error->status), error->line, error->col));
+        throw common::CopyException(
+            common::StringUtils::string_format("{} while reading rdf file at line {} and col {}",
+                (char*)serd_strerror(error->status), error->line, error->col));
     }
     return error->status;
 }

@@ -84,52 +84,23 @@ void CopyNode::executeInternal(ExecutionContext* context) {
     while (children[0]->getNextTuple(context)) {
         auto originalSelVector =
             resultSet->getDataChunk(copyNodeInfo.dataColumnPoses[0].dataChunkPos)->state->selVector;
-        if (sharedState->copyDesc.fileType != CopyDescription::FileType::TURTLE) {
-            // All tuples in the resultSet are in the same data chunk.
-            auto numTuplesToAppend = originalSelVector->selectedSize;
-            auto numAppendedTuples = 0ul;
-            while (numAppendedTuples < numTuplesToAppend) {
-                auto numAppendedTuplesInNodeGroup = localNodeGroup->append(
-                    resultSet, copyNodeInfo.dataColumnPoses, numTuplesToAppend - numAppendedTuples);
-                numAppendedTuples += numAppendedTuplesInNodeGroup;
-                if (localNodeGroup->isFull()) {
-                    node_group_idx_t nodeGroupIdx;
-                    nodeGroupIdx = sharedState->getNextNodeGroupIdx();
-                    writeAndResetNodeGroup(nodeGroupIdx, sharedState->pkIndex.get(),
-                        sharedState->pkColumnID, sharedState->table, localNodeGroup.get(),
-                        sharedState->isCopyTurtle);
-                }
-                if (numAppendedTuples < numTuplesToAppend) {
-                    sliceDataChunk(
-                        *resultSet->getDataChunk(copyNodeInfo.dataColumnPoses[0].dataChunkPos),
-                        copyNodeInfo.dataColumnPoses, (offset_t)numAppendedTuplesInNodeGroup);
-                }
-            }
-        } else {
+        switch (sharedState->copyDesc.fileType) {
+        case CopyDescription::FileType::TURTLE: {
             for (auto& dataPos : copyNodeInfo.dataColumnPoses) {
                 // All tuples in the resultSet are in the same data chunk.
                 auto vectorToAppend = resultSet->getValueVector(dataPos).get();
-                calculatePKToAppend(sharedState->pkIndex.get(), vectorToAppend);
-                auto numTuplesToAppend = vectorToAppend->state->getNumSelectedValues();
-                auto numAppendedTuples = 0ul;
-                while (numAppendedTuples < numTuplesToAppend) {
-                    auto numAppendedTuplesInNodeGroup = localNodeGroup->append(
-                        resultSet, {dataPos}, numTuplesToAppend - numAppendedTuples);
-                    numAppendedTuples += numAppendedTuplesInNodeGroup;
-                    if (localNodeGroup->isFull()) {
-                        node_group_idx_t nodeGroupIdx;
-                        nodeGroupIdx = sharedState->getNextNodeGroupIdx();
-                        writeAndResetNodeGroup(nodeGroupIdx, sharedState->pkIndex.get(),
-                            sharedState->pkColumnID, sharedState->table, localNodeGroup.get(),
-                            sharedState->isCopyTurtle);
-                    }
-                    if (numAppendedTuples < numTuplesToAppend) {
-                        sliceDataChunk(
-                            *resultSet->getDataChunk(copyNodeInfo.dataColumnPoses[0].dataChunkPos),
-                            copyNodeInfo.dataColumnPoses, (offset_t)numAppendedTuplesInNodeGroup);
-                    }
-                }
+                appendUniqueValueToPKIndex(sharedState->pkIndex.get(), vectorToAppend);
+                copyToNodeGroup({dataPos});
             }
+        } break;
+        case CopyDescription::FileType::CSV:
+        case CopyDescription::FileType::PARQUET:
+        case CopyDescription::FileType::NPY: {
+            copyToNodeGroup(copyNodeInfo.dataColumnPoses);
+        } break;
+        default: {
+            throw NotImplementedException{"CopyNode::executeInternal"};
+        }
         }
         resultSet->getDataChunk(copyNodeInfo.dataColumnPoses[0].dataChunkPos)->state->selVector =
             std::move(originalSelVector);
@@ -267,6 +238,47 @@ uint64_t CopyNode::appendToPKIndex<ku_string_t>(
         }
     }
     return numValues;
+}
+
+void CopyNode::appendUniqueValueToPKIndex(
+    storage::PrimaryKeyIndexBuilder* pkIndex, common::ValueVector* vectorToAppend) {
+    auto selVector = std::make_unique<common::SelectionVector>(common::DEFAULT_VECTOR_CAPACITY);
+    selVector->resetSelectorToValuePosBuffer();
+    common::sel_t nextPos = 0;
+    common::offset_t result;
+    auto offset = StorageUtils::getStartOffsetOfNodeGroup(sharedState->getCurNodeGroupIdx()) +
+                  localNodeGroup->getNumNodes();
+    for (auto i = 0u; i < vectorToAppend->state->getNumSelectedValues(); i++) {
+        auto uriStr = vectorToAppend->getValue<common::ku_string_t>(i).getAsString();
+        if (!pkIndex->lookup((int64_t)uriStr.c_str(), result)) {
+            pkIndex->append(uriStr.c_str(), offset++);
+            selVector->selectedPositions[nextPos++] = i;
+        }
+    }
+    selVector->selectedSize = nextPos;
+    vectorToAppend->state->selVector = std::move(selVector);
+}
+
+void CopyNode::copyToNodeGroup(std::vector<DataPos> dataPoses) {
+    auto numAppendedTuples = 0ul;
+    auto numTuplesToAppend =
+        resultSet->getDataChunk(dataPoses[0].dataChunkPos)->state->getNumSelectedValues();
+    while (numAppendedTuples < numTuplesToAppend) {
+        auto numAppendedTuplesInNodeGroup =
+            localNodeGroup->append(resultSet, dataPoses, numTuplesToAppend - numAppendedTuples);
+        numAppendedTuples += numAppendedTuplesInNodeGroup;
+        if (localNodeGroup->isFull()) {
+            node_group_idx_t nodeGroupIdx;
+            nodeGroupIdx = sharedState->getNextNodeGroupIdx();
+            writeAndResetNodeGroup(nodeGroupIdx, sharedState->pkIndex.get(),
+                sharedState->pkColumnID, sharedState->table, localNodeGroup.get(),
+                sharedState->isCopyTurtle);
+        }
+        if (numAppendedTuples < numTuplesToAppend) {
+            sliceDataChunk(*resultSet->getDataChunk(copyNodeInfo.dataColumnPoses[0].dataChunkPos),
+                copyNodeInfo.dataColumnPoses, (offset_t)numAppendedTuplesInNodeGroup);
+        }
+    }
 }
 
 } // namespace processor

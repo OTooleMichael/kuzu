@@ -46,7 +46,7 @@ public:
     }
 
     inline bool isCopyTurtleFile() const {
-        return sharedState->copyDescription->fileType == CopyDescription::FileType::TURTLE;
+        return sharedState->copyDescription->fileType == common::CopyDescription::FileType::TURTLE;
     }
 
     inline bool getContainsSerial() const { return info->containsSerial; }

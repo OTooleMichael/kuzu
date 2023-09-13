@@ -111,23 +111,10 @@ private:
     static uint64_t appendToPKIndex(storage::PrimaryKeyIndexBuilder* pkIndex,
         storage::ColumnChunk* chunk, common::offset_t startOffset, common::offset_t numNodes);
 
-    void calculatePKToAppend(
-        storage::PrimaryKeyIndexBuilder* pkIndex, common::ValueVector* vectorToAppend) {
-        auto selVector = std::make_unique<common::SelectionVector>(common::DEFAULT_VECTOR_CAPACITY);
-        selVector->resetSelectorToValuePosBuffer();
-        common::sel_t nextPos = 0;
-        common::offset_t result;
-        auto offset = sharedState->getCurNodeGroupIdx() + localNodeGroup->getNumNodes();
-        for (int i = 0; i < vectorToAppend->state->getNumSelectedValues(); i++) {
-            auto uriString = vectorToAppend->getValue<common::ku_string_t>(i).getAsString();
-            if (!pkIndex->lookup((int64_t)uriString.c_str(), result)) {
-                pkIndex->append(uriString.c_str(), offset++);
-                selVector->selectedPositions[nextPos++] = i;
-            }
-        }
-        selVector->selectedSize = nextPos;
-        vectorToAppend->state->selVector = std::move(selVector);
-    }
+    void appendUniqueValueToPKIndex(
+        storage::PrimaryKeyIndexBuilder* pkIndex, common::ValueVector* vectorToAppend);
+
+    void copyToNodeGroup(std::vector<DataPos> dataPoses);
 
 private:
     std::shared_ptr<CopyNodeSharedState> sharedState;
