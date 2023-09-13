@@ -16,9 +16,9 @@ jobs:
       CC: gcc
       CXX: g++
     steps:
-      - uses: jlumbroso/free-disk-space@main
-        with:
-          tool-cache: true
+      # - uses: jlumbroso/free-disk-space@main
+      #   with:
+      #     tool-cache: true
 
       - uses: actions/checkout@v3
         with:
