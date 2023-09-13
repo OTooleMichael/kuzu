@@ -18,9 +18,7 @@ namespace processor {
 
 std::unique_ptr<PhysicalOperator> PlanMapper::mapCopyFrom(LogicalOperator* logicalOperator) {
     auto copyFrom = (LogicalCopyFrom*)logicalOperator;
-    auto info = copyFrom->getInfo();
     switch (copyFrom->getInfo()->tableSchema->getTableType()) {
-    case TableType::RDF:
     case TableType::NODE:
         return mapCopyNodeFrom(logicalOperator);
     case TableType::REL:
