@@ -25,6 +25,7 @@ RDFReader::RDFReader(std::string filePath)
 }
 
 RDFReader::~RDFReader() {
+    serd_reader_end_stream(reader);
     serd_reader_free(reader);
     fclose(fp);
 }
