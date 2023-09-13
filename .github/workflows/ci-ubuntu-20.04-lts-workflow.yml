@@ -2,6 +2,11 @@ name: CI-Ubuntu-20.04-LTS
 
 on:
   workflow_dispatch:
+    inputs:
+      refToBuild:
+        description: 'Branch, tag or commit SHA1 to build'
+        required: false
+        type: string
 
 jobs:
   ubuntu-2004-build-test:
@@ -11,7 +16,13 @@ jobs:
       CC: gcc
       CXX: g++
     steps:
+      - uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+
       - uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.refToBuild }}
 
       - name: Build and test
         run: make test NUM_THREADS=$(nproc)
