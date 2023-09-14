@@ -9,7 +9,7 @@ jobs:
   ubuntu-2304-build-test:
     runs-on: ubuntu-latest
     container:
-      image: hub.docker.com/_/ubuntu
+      image: ubuntu:23.04
     env:
       CC: gcc
       CXX: g++
