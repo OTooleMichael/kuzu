@@ -9,7 +9,7 @@ jobs:
   ubuntu-2304-debian-build-test:
     strategy:
       matrix:
-        image: ['ubuntu:23.04', 'debian:11', 'debian:12']
+        image: ['ubuntu:23.04', 'debian:12']
     runs-on: ubuntu-latest
     container:
       image: ${{ matrix.image }}
