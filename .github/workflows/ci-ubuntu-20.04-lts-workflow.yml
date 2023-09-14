@@ -43,4 +43,4 @@ jobs:
 
       - name: Rust example
         working-directory: examples/rust
-        run: cargo build
+        run: cargo build --features arrow
