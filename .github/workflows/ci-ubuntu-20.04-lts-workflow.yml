@@ -40,7 +40,7 @@ jobs:
       - run: cat /etc/os-release
 
       - name: Build and test
-        run: make test NUM_THREADS=$(nproc)
+        run: make release NUM_THREADS=$(nproc)
 
       - name: C Example
         working-directory: examples/c
