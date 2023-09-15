@@ -11,9 +11,8 @@ jobs:
         runner: [windows-2019]
     runs-on: ${{ matrix.runner }}
     steps:
-      - run: vcpkg install openssl:x64-windows-static-md
+      # - run: vcpkg install openssl:x64-windows-static-md
       - name: test
         shell: cmd
         run: |
-          dir "C:\Program Files"
-          dir "C:\Program Files (x86)"
+          dir "C:\"
