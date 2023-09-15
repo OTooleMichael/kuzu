@@ -4,19 +4,17 @@ on:
   workflow_dispatch:
 
 jobs:
-  ubuntu-2304-build-test:
-    runs-on: ubuntu-latest
-    container:
-      image: ubuntu:23.04
+  windows-build-test:
+    name: windows build & test
+    strategy:
+      matrix:
+        runner: [windows-2019, windows-2022]
+    runs-on: ${{ matrix.runner }}
     steps:
-      - name: Install packages
+      - name: test
+        shell: cmd
         run: |
-          apt update
-          apt install -y build-essential cmake gcc g++ python3 python3-dev git
-
-      - uses: actions/checkout@v3
-        with:
-          ref: 9fe713ebd1199f1fdc6614d818d1a7ad951a9edb
-
-      - name: Build and test
-        run: make test NUM_THREADS=$(nproc)
+          dir C:\Program Files
+          dir C:\Program Files (x86)
+          dir C:\Program Files\OpenSSL-Win64
+          dir C:\Program Files (x86)\OpenSSL-Win64
