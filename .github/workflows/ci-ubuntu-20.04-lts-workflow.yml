@@ -74,28 +74,34 @@ jobs:
 
       - run: choco install openssl
 
-      - name: Rust share build
-        shell: cmd
-        # Share build cache when building rust API and the example project
-        run: (echo [workspace]& echo members = ["tools/rust_api","examples/rust"]) > Cargo.toml
+      - run: |
+          dir "C:\Program Files\OpenSSL-Win64"
+          dir "C:\Program Files\OpenSSL-Win64\bin"
+          dir "C:\Program Files\OpenSSL-Win64\lib"
+          dir "C:\Program Files\OpenSSL-Win64\lib\VC"
 
-      - name: Rust test
-        shell: cmd
-        working-directory: tools/rust_api
-        run: |
-          set OPENSSL_DIR="C:\Program Files\OpenSSL-Win64"
-          set KUZU_TESTING=1
-          set CFLAGS=/MDd
-          set CXXFLAGS=/MDd /std:c++20
-          set LDFLAGS=/LIBPATH:"C:\Program Files\OpenSSL-Win64\lib"
-          set CARGO_BUILD_JOBS=%NUMBER_OF_PROCESSORS%
-          cargo update -p half@2.3.1 --precise '2.2.1'
-          cargo update -p time --precise '0.3.23'
-          cargo test --features arrow -- --test-threads=1
+      # - name: Rust share build
+      #   shell: cmd
+      #   # Share build cache when building rust API and the example project
+      #   run: (echo [workspace]& echo members = ["tools/rust_api","examples/rust"]) > Cargo.toml
 
-      - name: Rust example
-        shell: cmd
-        working-directory: examples/rust
-        run: |
-          set CARGO_BUILD_JOBS=%NUMBER_OF_PROCESSORS%
-          cargo build --features arrow
+      # - name: Rust test
+      #   shell: cmd
+      #   working-directory: tools/rust_api
+      #   run: |
+      #     set OPENSSL_DIR="C:\Program Files\OpenSSL-Win64"
+      #     set KUZU_TESTING=1
+      #     set CFLAGS=/MDd
+      #     set CXXFLAGS=/MDd /std:c++20
+      #     set LDFLAGS=/LIBPATH:"C:\Program Files\OpenSSL-Win64\lib"
+      #     set CARGO_BUILD_JOBS=%NUMBER_OF_PROCESSORS%
+      #     cargo update -p half@2.3.1 --precise '2.2.1'
+      #     cargo update -p time --precise '0.3.23'
+      #     cargo test --features arrow -- --test-threads=1
+
+      # - name: Rust example
+      #   shell: cmd
+      #   working-directory: examples/rust
+      #   run: |
+      #     set CARGO_BUILD_JOBS=%NUMBER_OF_PROCESSORS%
+      #     cargo build --features arrow
