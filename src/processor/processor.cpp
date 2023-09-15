@@ -81,12 +81,13 @@ void QueryProcessor::decomposePlanIntoTasks(
     case PhysicalOperatorType::STANDALONE_CALL:
     case PhysicalOperatorType::PROFILE:
     case PhysicalOperatorType::CREATE_MACRO:
+    case PhysicalOperatorType::COMMENT_ON:
     case PhysicalOperatorType::TRANSACTION: {
         parentTask->setSingleThreadedTask();
     } break;
     case PhysicalOperatorType::READER: {
         auto reader = (Reader*)op;
-        if (reader->getContainsSerial()) {
+        if (reader->getContainsSerial() || reader->isCopyTurtleFile()) {
             parentTask->setSingleThreadedTask();
         }
     } break;

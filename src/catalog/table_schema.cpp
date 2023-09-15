@@ -5,7 +5,10 @@
 #include "catalog/rel_table_group_schema.h"
 #include "catalog/rel_table_schema.h"
 #include "common/constants.h"
-#include "common/exception.h"
+#include "common/exception/catalog.h"
+#include "common/exception/internal.h"
+#include "common/exception/not_implemented.h"
+#include "common/exception/runtime.h"
 #include "common/ser_deser.h"
 #include "common/string_utils.h"
 
@@ -73,6 +76,7 @@ void TableSchema::serialize(FileInfo* fileInfo, uint64_t& offset) {
     SerDeser::serializeValue(tableID, fileInfo, offset);
     SerDeser::serializeValue(tableType, fileInfo, offset);
     SerDeser::serializeVectorOfPtrs(properties, fileInfo, offset);
+    SerDeser::serializeValue(comment, fileInfo, offset);
     SerDeser::serializeValue(nextPropertyID, fileInfo, offset);
     serializeInternal(fileInfo, offset);
 }
@@ -82,11 +86,13 @@ std::unique_ptr<TableSchema> TableSchema::deserialize(FileInfo* fileInfo, uint64
     table_id_t tableID;
     TableType tableType;
     std::vector<std::unique_ptr<Property>> properties;
+    std::string comment;
     property_id_t nextPropertyID;
     SerDeser::deserializeValue(tableName, fileInfo, offset);
     SerDeser::deserializeValue(tableID, fileInfo, offset);
     SerDeser::deserializeValue(tableType, fileInfo, offset);
     SerDeser::deserializeVectorOfPtrs(properties, fileInfo, offset);
+    SerDeser::deserializeValue(comment, fileInfo, offset);
     SerDeser::deserializeValue(nextPropertyID, fileInfo, offset);
     std::unique_ptr<TableSchema> result;
     switch (tableType) {
@@ -110,6 +116,7 @@ std::unique_ptr<TableSchema> TableSchema::deserialize(FileInfo* fileInfo, uint64
     result->tableID = tableID;
     result->tableType = tableType;
     result->properties = std::move(properties);
+    result->comment = std::move(comment);
     result->nextPropertyID = nextPropertyID;
     return result;
 }

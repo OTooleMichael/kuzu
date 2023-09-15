@@ -1,6 +1,8 @@
 #include "processor/result/flat_tuple.h"
 
+#include "common/exception/runtime.h"
 #include "common/string_utils.h"
+#include "common/types/value/value.h"
 #include "utf8proc.h"
 #include "utf8proc_wrapper.h"
 

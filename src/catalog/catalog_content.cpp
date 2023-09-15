@@ -4,6 +4,8 @@
 #include "catalog/rdf_graph_schema.h"
 #include "catalog/rel_table_group_schema.h"
 #include "catalog/rel_table_schema.h"
+#include "common/exception/catalog.h"
+#include "common/exception/runtime.h"
 #include "common/ser_deser.h"
 #include "common/string_utils.h"
 #include "storage/storage_utils.h"
@@ -127,6 +129,14 @@ Property* CatalogContent::getRelProperty(
         }
     }
     throw CatalogException("Cannot find rel property " + propertyName + ".");
+}
+
+std::vector<TableSchema*> CatalogContent::getTableSchemas() const {
+    std::vector<TableSchema*> allTableSchemas;
+    for (auto&& [_, schema] : tableSchemas) {
+        allTableSchemas.push_back(schema.get());
+    }
+    return allTableSchemas;
 }
 
 void CatalogContent::dropTableSchema(table_id_t tableID) {

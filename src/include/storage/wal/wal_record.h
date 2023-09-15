@@ -1,7 +1,10 @@
 #pragma once
 
+#include "common/exception/not_implemented.h"
+#include "common/exception/runtime.h"
 #include "common/rel_direction.h"
-#include "common/types/types_include.h"
+#include "common/types/internal_id_t.h"
+#include "common/types/types.h"
 #include "common/utils.h"
 
 namespace kuzu {

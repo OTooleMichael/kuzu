@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.11)
 
-project(Kuzu VERSION 0.0.8.6 LANGUAGES CXX)
+project(Kuzu VERSION 0.0.8.7 LANGUAGES CXX)
 
 find_package(Threads REQUIRED)
 
@@ -75,6 +75,7 @@ if(MSVC)
     add_compile_definitions(_USE_MATH_DEFINES)
     add_compile_definitions(NOMINMAX)
     add_compile_definitions(ARROW_STATIC PARQUET_STATIC)
+    add_compile_definitions(SERD_STATIC)
     # TODO (bmwinger): Figure out if this can be set automatically by cmake,
     # or at least better integrated with user-specified options
     # For now, hardcode _AMD64_
@@ -172,9 +173,15 @@ else()
             -DENABLE_UBSAN=${ENABLE_UBSAN}
             -DFORCE_COLORED_OUTPUT=${FORCE_COLORED_OUTPUT}
             WORKING_DIRECTORY ${ARROW_BUILD_DIR}
-            COMMAND_ERROR_IS_FATAL ANY)
+            RESULT_VARIABLE ARROW_CONFIGURE_RESULT)
+        if (ARROW_CONFIGURE_RESULT)
+            message(FATAL_ERROR "Failed to configure arrow")
+        endif()
         execute_process(COMMAND ${CMAKE_COMMAND} --build ${ARROW_BUILD_DIR} --config ${CMAKE_BUILD_TYPE}
-            COMMAND_ERROR_IS_FATAL ANY)
+            RESULT_VARIABLE ARROW_BUILD_RESULT)
+        if (ARROW_BUILD_RESULT)
+            message(FATAL_ERROR "Failed to build arrow")
+        endif()
     else()
         message(STATUS "Using arrow at path ${ARROW_INSTALL}")
     endif()
@@ -209,6 +216,7 @@ include_directories(third_party/utf8proc/include)
 include_directories(third_party/pybind11/include)
 include_directories(third_party/re2/include)
 include_directories(third_party/concurrentqueue)
+include_directories(third_party/serd/include)
 
 add_subdirectory(third_party)
 add_subdirectory(src)

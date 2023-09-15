@@ -2,8 +2,10 @@
 
 #include <cassert>
 
-#include "common/exception.h"
+#include "common/exception/runtime.h"
 #include "common/type_utils.h"
+#include "common/types/blob.h"
+#include "common/types/ku_string.h"
 #include "common/vector/value_vector.h"
 
 namespace kuzu {
@@ -182,6 +184,38 @@ inline void CastToInt16::operation(int64_t& input, int16_t& result) {
 template<>
 inline void CastToInt16::operation(int32_t& input, int16_t& result) {
     numericDownCast<int32_t, int16_t>(input, result, "INT16");
+}
+
+struct CastToInt8 {
+    template<typename T>
+    static inline void operation(T& input, int8_t& result) {
+        result = static_cast<int8_t>(input);
+    }
+};
+
+template<>
+inline void CastToInt8::operation(double_t& input, int8_t& result) {
+    numericDownCast<double_t, int8_t>(input, result, "INT8");
+}
+
+template<>
+inline void CastToInt8::operation(float_t& input, int8_t& result) {
+    numericDownCast<float_t, int8_t>(input, result, "INT8");
+}
+
+template<>
+inline void CastToInt8::operation(int64_t& input, int8_t& result) {
+    numericDownCast<int64_t, int8_t>(input, result, "INT8");
+}
+
+template<>
+inline void CastToInt8::operation(int32_t& input, int8_t& result) {
+    numericDownCast<int32_t, int8_t>(input, result, "INT8");
+}
+
+template<>
+inline void CastToInt8::operation(int16_t& input, int8_t& result) {
+    numericDownCast<int16_t, int8_t>(input, result, "INT8");
 }
 
 } // namespace function

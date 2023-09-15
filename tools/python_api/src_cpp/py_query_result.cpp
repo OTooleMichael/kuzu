@@ -3,6 +3,9 @@
 #include <string>
 
 #include "common/arrow/arrow_converter.h"
+#include "common/types/value/nested.h"
+#include "common/types/value/node.h"
+#include "common/types/value/rel.h"
 #include "datetime.h" // python lib
 #include "include/py_query_result_converter.h"
 #include "json.hpp"
@@ -217,8 +220,15 @@ kuzu::pyarrow::Table PyQueryResult::getAsArrow(std::int64_t chunkSize) {
 
     auto typesInfo = queryResult->getColumnTypesInfo();
     auto schema = ArrowConverter::toArrowSchema(typesInfo);
-    auto schemaObj = schemaImportFunc((std::uint64_t)schema.get());
+    // Prevent arrow from releasing the schema until it gets passed to the table
+    // It seems like you are expected to pass a new schema for each RecordBatch
+    auto release = schema->release;
+    schema->release = [](ArrowSchema*) {};
+
     py::list batches = getArrowChunks(*schema, chunkSize);
+    auto schemaObj = schemaImportFunc((std::uint64_t)schema.get());
+
+    schema->release = release;
     return py::cast<kuzu::pyarrow::Table>(fromBatchesFunc(batches, schemaObj));
 }
 

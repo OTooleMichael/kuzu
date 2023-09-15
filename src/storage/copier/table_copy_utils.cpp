@@ -1,6 +1,8 @@
 #include "storage/copier/table_copy_utils.h"
 
 #include "common/constants.h"
+#include "common/exception/copy.h"
+#include "common/exception/parser.h"
 #include "common/string_utils.h"
 #include "storage/copier/npy_reader.h"
 #include "storage/storage_structure/lists/lists.h"
@@ -191,6 +193,11 @@ std::unique_ptr<uint8_t[]> TableCopyUtils::getArrowFixedList(const std::string& 
         case LogicalTypeID::INT16: {
             auto val = StringCastUtils::castToNum<int16_t>(element.c_str(), element.length());
             memcpy(listVal.get() + numElementsRead * sizeof(int16_t), &val, sizeof(int16_t));
+            numElementsRead++;
+        } break;
+        case LogicalTypeID::INT8: {
+            auto val = StringCastUtils::castToNum<int8_t>(element.c_str(), element.length());
+            memcpy(listVal.get() + numElementsRead * sizeof(int8_t), &val, sizeof(int8_t));
             numElementsRead++;
         } break;
         case LogicalTypeID::DOUBLE: {

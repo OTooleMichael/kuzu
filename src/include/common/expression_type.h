@@ -30,6 +30,7 @@ const std::string CAST_TO_SERIAL_FUNC_NAME = "TO_SERIAL";
 const std::string CAST_TO_INT64_FUNC_NAME = "TO_INT64";
 const std::string CAST_TO_INT32_FUNC_NAME = "TO_INT32";
 const std::string CAST_TO_INT16_FUNC_NAME = "TO_INT16";
+const std::string CAST_TO_INT8_FUNC_NAME = "TO_INT8";
 const std::string CAST_TO_BLOB_FUNC_NAME = "BLOB";
 
 // list
@@ -211,6 +212,7 @@ const std::string DECODE_FUNC_NAME = "DECODE";
 const std::string TABLE_INFO_FUNC_NAME = "TABLE_INFO";
 const std::string DB_VERSION_FUNC_NAME = "DB_VERSION";
 const std::string CURRENT_SETTING_FUNC_NAME = "CURRENT_SETTING";
+const std::string SHOW_TABLES_FUNC_NAME = "SHOW_TABLES";
 
 enum ExpressionType : uint8_t {
 

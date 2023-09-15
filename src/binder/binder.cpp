@@ -3,6 +3,8 @@
 #include "binder/bound_statement_rewriter.h"
 #include "binder/expression/variable_expression.h"
 #include "catalog/rel_table_schema.h"
+#include "common/exception/binder.h"
+#include "common/exception/not_implemented.h"
 #include "common/string_utils.h"
 
 using namespace kuzu::common;
@@ -44,6 +46,9 @@ std::unique_ptr<BoundStatement> Binder::bind(const Statement& statement) {
     } break;
     case StatementType::STANDALONE_CALL: {
         boundStatement = bindStandaloneCall(statement);
+    } break;
+    case StatementType::COMMENT_ON: {
+        boundStatement = bindCommentOn(statement);
     } break;
     case StatementType::EXPLAIN: {
         boundStatement = bindExplain(statement);

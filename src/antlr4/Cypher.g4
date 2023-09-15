@@ -24,6 +24,7 @@ oC_Statement
         | kU_CopyTO
         | kU_StandaloneCall
         | kU_CreateMacro
+        | kU_CommentOn
         | kU_Transaction ;
 
 kU_CopyFrom
@@ -39,6 +40,11 @@ kU_StandaloneCall
     : CALL SP oC_SymbolicName SP? '=' SP? oC_Literal ;
 
 CALL : ( 'C' | 'c' ) ( 'A' | 'a' ) ( 'L' | 'l' ) ( 'L' | 'l' ) ;
+
+kU_CommentOn
+    : COMMENT SP ON SP TABLE SP oC_SchemaName SP IS SP StringLiteral ;
+
+COMMENT : ( 'C' | 'c' ) ( 'O' | 'o' ) ( 'M' | 'm' ) ( 'M' | 'm' ) ( 'E' | 'e' ) ( 'N' | 'n' ) ( 'T' | 't' ) ;
 
 kU_CreateMacro
     : CREATE SP MACRO SP oC_FunctionName SP? '(' SP? kU_PositionalArgs? SP? kU_DefaultArg? ( SP? ',' SP? kU_DefaultArg )* SP? ')' SP AS SP oC_Expression ;
@@ -400,7 +406,14 @@ oC_NodeLabel
     : ':' SP? oC_LabelName ;
 
 oC_RangeLiteral
-    :  '*' SP? ( SHORTEST | ALL SP SHORTEST )? SP? oC_IntegerLiteral SP? '..' SP? oC_IntegerLiteral (SP? '(' SP? oC_Variable SP? ',' SP? '_' SP? '|' SP? oC_Where SP? ')')? ;
+    :  '*' SP? ( SHORTEST | ALL SP SHORTEST )? SP? (oC_LowerBound? SP? '..' SP? oC_UpperBound? | oC_IntegerLiteral)? (SP? '(' SP? oC_Variable SP? ',' SP? '_' SP? '|' SP? oC_Where SP? ')')? ;
+
+oC_LowerBound
+    : DecimalInteger ;
+
+oC_UpperBound
+    : DecimalInteger ;
+
 
 SHORTEST : ( 'S' | 's' ) ( 'H' | 'h' ) ( 'O' | 'o' ) ( 'R' | 'r' ) ( 'T' | 't' ) ( 'E' | 'e' ) ( 'S' | 's' ) ( 'T' | 't' ) ;
 
@@ -667,7 +680,11 @@ oC_SymbolicName
     : UnescapedSymbolicName
         | EscapedSymbolicName {if ($EscapedSymbolicName.text == "``") { notifyEmptyToken($EscapedSymbolicName); }}
         | HexLetter
+        | kU_NonReservedKeywords
         ;
+
+kU_NonReservedKeywords
+    : COMMENT ;
 
 UnescapedSymbolicName
     : IdentifierStart ( IdentifierPart )* ;

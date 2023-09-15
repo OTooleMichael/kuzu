@@ -1,6 +1,7 @@
 #include "binder/bound_statement_visitor.h"
 
 #include "binder/bound_explain.h"
+#include "common/exception/not_implemented.h"
 
 using namespace kuzu::common;
 
@@ -36,6 +37,9 @@ void BoundStatementVisitor::visit(const kuzu::binder::BoundStatement& statement)
     } break;
     case StatementType::STANDALONE_CALL: {
         visitStandaloneCall(statement);
+    } break;
+    case StatementType::COMMENT_ON: {
+        visitCommentOn(statement);
     } break;
     case StatementType::EXPLAIN: {
         visitExplain(statement);

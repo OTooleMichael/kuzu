@@ -1,6 +1,6 @@
 #include "planner/logical_plan/logical_operator.h"
 
-#include "common/exception.h"
+#include "common/exception/not_implemented.h"
 
 using namespace kuzu::common;
 
@@ -17,6 +17,9 @@ std::string LogicalOperatorUtils::logicalOperatorTypeToString(LogicalOperatorTyp
     }
     case LogicalOperatorType::AGGREGATE: {
         return "AGGREGATE";
+    }
+    case LogicalOperatorType::COMMENT_ON: {
+        return "COMMENT_ON";
     }
     case LogicalOperatorType::COPY_FROM: {
         return "COPY_FROM";

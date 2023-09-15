@@ -7,7 +7,7 @@
 namespace kuzu {
 namespace common {
 
-constexpr char KUZU_VERSION[] = "v0.0.8.5";
+constexpr char KUZU_VERSION[] = "v0.0.8.7";
 
 constexpr uint64_t DEFAULT_VECTOR_CAPACITY_LOG_2 = 11;
 constexpr uint64_t DEFAULT_VECTOR_CAPACITY = (uint64_t)1 << DEFAULT_VECTOR_CAPACITY_LOG_2;
@@ -112,6 +112,7 @@ struct ListsMetadataConstants {
 // Hash Index Configurations
 struct HashIndexConstants {
     static constexpr uint8_t SLOT_CAPACITY = 3;
+    static constexpr double MAX_LOAD_FACTOR = 0.8;
 };
 
 struct CopyConstants {

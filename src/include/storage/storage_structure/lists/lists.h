@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common/types/value.h"
+#include "common/exception/storage.h"
 #include "lists_update_store.h"
 #include "storage/storage_structure/disk_overflow_file.h"
 #include "storage/storage_structure/lists/list_handle.h"

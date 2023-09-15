@@ -3,7 +3,9 @@
 #include <cstdint>
 #include <unordered_set>
 
+#include "common/exception/runtime.h"
 #include "common/type_utils.h"
+#include "common/types/ku_list.h"
 #include "common/utils.h"
 
 namespace kuzu {
@@ -75,6 +77,11 @@ inline void Hash::operation(const int32_t& key, common::hash_t& result) {
 
 template<>
 inline void Hash::operation(const int16_t& key, common::hash_t& result) {
+    result = murmurhash64(key);
+}
+
+template<>
+inline void Hash::operation(const int8_t& key, common::hash_t& result) {
     result = murmurhash64(key);
 }
 

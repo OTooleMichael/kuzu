@@ -1,5 +1,6 @@
 #include "function/built_in_table_functions.h"
 
+#include "common/exception/binder.h"
 #include "common/expression_type.h"
 #include "common/string_utils.h"
 
@@ -12,6 +13,7 @@ void BuiltInTableFunctions::registerTableFunctions() {
     tableFunctions.insert({TABLE_INFO_FUNC_NAME, TableInfoFunction::getDefinitions()});
     tableFunctions.insert({DB_VERSION_FUNC_NAME, DBVersionFunction::getDefinitions()});
     tableFunctions.insert({CURRENT_SETTING_FUNC_NAME, CurrentSettingFunction::getDefinitions()});
+    tableFunctions.insert({SHOW_TABLES_FUNC_NAME, ShowTablesFunction::getDefinitions()});
 }
 
 TableFunctionDefinition* BuiltInTableFunctions::mathTableFunction(const std::string& name) {

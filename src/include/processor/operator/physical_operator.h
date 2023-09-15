@@ -1,5 +1,6 @@
 #pragma once
 
+#include "common/exception/interrupt.h"
 #include "processor/data_pos.h"
 #include "processor/execution_context.h"
 #include "processor/result/result_set.h"
@@ -12,6 +13,7 @@ enum class PhysicalOperatorType : uint8_t {
     ADD_PROPERTY,
     AGGREGATE,
     AGGREGATE_SCAN,
+    COMMENT_ON,
     CREATE_MACRO,
     STANDALONE_CALL,
     IN_QUERY_CALL,
