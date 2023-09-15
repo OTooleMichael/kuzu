@@ -1,7 +1,9 @@
 add_library(kuzu_processor_operator_persistent_reader
         OBJECT
-        csv_reader.cpp
+        base_csv_reader.cpp
         npy_reader.cpp
+        parallel_csv_reader.cpp
+        serial_csv_reader.cpp
         rdf_reader.cpp)
 
 set(ALL_OBJECT_FILES

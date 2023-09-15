@@ -8,7 +8,7 @@
 #include "parser/query/reading_clause/in_query_call_clause.h"
 #include "parser/query/reading_clause/load_from.h"
 #include "parser/query/reading_clause/unwind_clause.h"
-#include "processor/operator/persistent/reader/csv_reader.h"
+#include "processor/operator/persistent/reader/serial_csv_reader.h"
 
 using namespace kuzu::common;
 using namespace kuzu::parser;
@@ -126,8 +126,7 @@ std::unique_ptr<BoundReadingClause> Binder::bindLoadFrom(
     if (readerConfig->getNumFiles() > 1) {
         throw BinderException("Load from multiple files is not supported.");
     }
-    auto csvReader = BufferedCSVReader(
-        readerConfig->filePaths[0], *readerConfig->csvReaderConfig, 0 /*expectedNumColumns*/);
+    auto csvReader = SerialCSVReader(readerConfig->filePaths[0], *readerConfig);
     csvReader.SniffCSV();
     auto numColumns = csvReader.getNumColumnsDetected();
     expression_vector columns;

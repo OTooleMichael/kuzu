@@ -21,31 +21,34 @@ void Reader::initLocalStateInternal(ResultSet* resultSet, ExecutionContext* cont
     for (auto i = 0u; i < info->getNumColumns(); i++) {
         dataChunk->insert(i, resultSet->getValueVector(info->dataColumnsPos[i]));
     }
-    initFunc =
-        ReaderFunctions::getInitDataFunc(sharedState->readerConfig->fileType, info->tableType);
-    readFunc =
-        ReaderFunctions::getReadRowsFunc(sharedState->readerConfig->fileType, info->tableType);
+    initFunc = ReaderFunctions::getInitDataFunc(*sharedState->readerConfig, info->tableType);
+    readFunc = ReaderFunctions::getReadRowsFunc(*sharedState->readerConfig, info->tableType);
     if (info->nodeOffsetPos.dataChunkPos != INVALID_DATA_CHUNK_POS) {
         offsetVector = resultSet->getValueVector(info->nodeOffsetPos).get();
     }
     assert(!sharedState->readerConfig->filePaths.empty());
-    switch (sharedState->readerConfig->fileType) {
-    case FileType::CSV: {
+    if (sharedState->readerConfig->fileType == FileType::CSV &&
+        !sharedState->readerConfig->csvParallelRead(info->tableType)) {
         readFuncData = sharedState->readFuncData;
-    } break;
-    default: {
+    } else {
         readFuncData =
-            ReaderFunctions::getReadFuncData(sharedState->readerConfig->fileType, info->tableType);
+            ReaderFunctions::getReadFuncData(*sharedState->readerConfig, info->tableType);
         initFunc(*readFuncData, 0, *sharedState->readerConfig);
-    }
     }
 }
 
 bool Reader::getNextTuplesInternal(ExecutionContext* context) {
-    sharedState->readerConfig->parallelRead() ?
+    sharedState->readerConfig->parallelRead(info->tableType) ?
         readNextDataChunk<ReaderSharedState::ReadMode::PARALLEL>() :
         readNextDataChunk<ReaderSharedState::ReadMode::SERIAL>();
     return dataChunk->state->selVector->selectedSize != 0;
+}
+
+static void getMoreFromParallelCSVReader(
+    ReaderFunctionData& functionData, common::DataChunk* dataChunkToRead) {
+    auto& readerData = reinterpret_cast<const ParallelCSVReaderFunctionData&>(functionData);
+    uint64_t numRows = readerData.reader->ContinueBlock(*dataChunkToRead);
+    dataChunkToRead->state->selVector->selectedSize = numRows;
 }
 
 template<ReaderSharedState::ReadMode READ_MODE>
@@ -64,6 +67,17 @@ void Reader::readNextDataChunk() {
             break;
         }
         dataChunk->state->selVector->selectedSize = 0;
+        dataChunk->resetAuxiliaryBuffer();
+        // HACK(Keenan): We need to refactor the reader operator to avoid this pollution.
+        if (sharedState->readerConfig->fileType == FileType::CSV &&
+            sharedState->readerConfig->csvParallelRead(info->tableType)) {
+            getMoreFromParallelCSVReader(*readFuncData, dataChunk.get());
+            if (dataChunk->state->selVector->selectedSize > 0) {
+                leftArrowArrays.appendFromDataChunk(dataChunk.get());
+                continue;
+            }
+        }
+
         auto morsel = sharedState->getMorsel<READ_MODE>();
         if (morsel->fileIdx == INVALID_VECTOR_IDX) {
             // No more files to read.
@@ -72,7 +86,6 @@ void Reader::readNextDataChunk() {
         if (morsel->fileIdx != readFuncData->fileIdx) {
             initFunc(*readFuncData, morsel->fileIdx, *sharedState->readerConfig);
         }
-        dataChunk->resetAuxiliaryBuffer();
         readFunc(*readFuncData, morsel->blockIdx, dataChunk.get());
         if (dataChunk->state->selVector->selectedSize > 0) {
             leftArrowArrays.appendFromDataChunk(dataChunk.get());

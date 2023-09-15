@@ -119,15 +119,18 @@ struct CopyConstants {
     // Size (in bytes) of the chunks to be read in Node/Rel Copier
     static constexpr uint64_t CSV_READING_BLOCK_SIZE = 1 << 23;
 
+    static constexpr const char* BOOL_CSV_PARSING_OPTIONS[] = {"HEADER", "PARALLEL"};
+    static constexpr bool DEFAULT_CSV_HAS_HEADER = false;
+    static constexpr bool DEFAULT_CSV_PARALLEL = true;
+
     // Default configuration for csv file parsing
-    static constexpr const char* STRING_CSV_PARSING_OPTIONS[5] = {
+    static constexpr const char* STRING_CSV_PARSING_OPTIONS[] = {
         "ESCAPE", "DELIM", "QUOTE", "LIST_BEGIN", "LIST_END"};
     static constexpr char DEFAULT_CSV_ESCAPE_CHAR = '\\';
     static constexpr char DEFAULT_CSV_DELIMITER = ',';
     static constexpr char DEFAULT_CSV_QUOTE_CHAR = '"';
     static constexpr char DEFAULT_CSV_LIST_BEGIN_CHAR = '[';
     static constexpr char DEFAULT_CSV_LIST_END_CHAR = ']';
-    static constexpr bool DEFAULT_CSV_HAS_HEADER = false;
     static constexpr char DEFAULT_CSV_LINE_BREAK = '\n';
 };
 
