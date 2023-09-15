@@ -1,18 +1,19 @@
 name: CI-Ubuntu-20.04-LTS
-
 on:
   workflow_dispatch:
-
 jobs:
-  windows-build-test:
-    name: windows build & test
-    strategy:
-      matrix:
-        runner: [windows-2019]
-    runs-on: ${{ matrix.runner }}
+  ubuntu-2304-build-test:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:23.04
     steps:
-      # - run: vcpkg install openssl:x64-windows-static-md
-      - name: test
-        shell: cmd
-        run: |
-          dir "C:\"
+      - run: |
+          apt-get update
+          apt-get install -y build-essential cmake gcc g++ python3 python3-dev git
+          git clone https://github.com/kuzudb/kuzu.git
+          cd kuzu
+          git switch ci-more-platforms
+          git checkout d3ed7f26ee2575fc2e702fd3d495405ee869555a
+          make test NUM_THREADS=$(nproc)
+          git checkout 9fe713ebd1199f1fdc6614d818d1a7ad951a9edb
+          make test NUM_THREADS=$(nproc)
