@@ -10,7 +10,7 @@ jobs:
     name: windows build & test
     strategy:
       matrix:
-        runner: [windows-2019]
+        runner: [windows-2022]
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v3
