@@ -10,7 +10,7 @@ jobs:
     name: rockylinux build & test
     strategy:
       matrix:
-        image: ['rockylinux:8']
+        image: ['rockylinux:9']
     runs-on: ubuntu-latest
     container:
       image: ${{ matrix.image }}
@@ -22,7 +22,7 @@ jobs:
       - name: Install packages
         run: |
           dnf update -y
-          dnf install -y git cmake gcc gcc-c++ ${{ matrix.image == 'rockylinux:8' && 'python39 python39-devel' || 'python3-pip' }} npm java-17-openjdk
+          dnf install -y git cmake gcc gcc-c++ ${{ matrix.image == 'rockylinux:8' && 'python39 python39-devel' || 'python3-devel' }} npm java-17-openjdk
 
       - uses: actions/checkout@v3
 
@@ -42,11 +42,9 @@ jobs:
           $HOME/.cargo/bin/rustup toolchain install 1.67
 
       - name: Build and test
-        if: matrix.image != 'rockylinux:8'
         run: make release NUM_THREADS=$(nproc)
 
       - name: C Example
-        if: matrix.image != 'rockylinux:8'
         working-directory: examples/c
         run: |
           mkdir build -p
@@ -55,7 +53,6 @@ jobs:
           cmake --build .
 
       - name: C++ Example
-        if: matrix.image != 'rockylinux:8'
         working-directory: examples/cpp
         run: |
           mkdir build -p
