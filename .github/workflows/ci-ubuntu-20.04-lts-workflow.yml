@@ -17,6 +17,7 @@ jobs:
     env:
       CC: gcc
       CXX: g++
+      CXXFLAGS: -std=c++14
       JAVA_HOME: /usr/lib/jvm/java-17-openjdk
     steps:
       - name: Install packages
