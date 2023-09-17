@@ -10,7 +10,7 @@ jobs:
     name: rockylinux build & test
     strategy:
       matrix:
-        image: ['rockylinux:8', 'rockylinux:9']
+        image: ['rockylinux:8']
     runs-on: ubuntu-latest
     container:
       image: ${{ matrix.image }}
@@ -41,8 +41,9 @@ jobs:
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
           $HOME/.cargo/bin/rustup toolchain install 1.67
 
-      # - name: Build and test
-      #   run: make release NUM_THREADS=$(nproc)
+      - name: Build and test
+        if: matrix.image != 'rockylinux:8'
+        run: make release NUM_THREADS=$(nproc)
 
       - name: C Example
         working-directory: examples/c
