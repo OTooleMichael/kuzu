@@ -22,7 +22,7 @@ jobs:
       - name: Install packages
         run: |
           dnf update -y
-          dnf install -y git cmake gcc gcc-c++ ${{ matrix.image == 'rockylinux:8' && 'python39 python39-devel' || 'python3-devel' }} npm java-17-openjdk
+          dnf install -y git cmake gcc gcc-c++ ${{ matrix.image == 'rockylinux:8' && 'python39 python39-devel' || 'python3-devel' }} npm java-17-openjdk-devel
 
       - uses: actions/checkout@v3
 
