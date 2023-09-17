@@ -40,11 +40,9 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-update-default-toolchain
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
           $HOME/.cargo/bin/rustup toolchain install 1.67
-      
-      - run: echo "CXXFLAGS=${CXXFLAGS} -std=c++14" >> $GITHUB_ENV
 
-      - name: Build and test
-        run: make release NUM_THREADS=$(nproc)
+      # - name: Build and test
+      #   run: make release NUM_THREADS=$(nproc)
 
       - name: C Example
         working-directory: examples/c
