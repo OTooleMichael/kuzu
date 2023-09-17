@@ -41,7 +41,7 @@ jobs:
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
           $HOME/.cargo/bin/rustup toolchain install 1.67
       
-      - run: echo "CXXFLAGS=\"${CXXFLAGS} -std=c++14\"" >> $GITHUB_ENV
+      - run: echo "CXXFLAGS=${CXXFLAGS} -std=c++14" >> $GITHUB_ENV
 
       - name: Build and test
         run: make release NUM_THREADS=$(nproc)
