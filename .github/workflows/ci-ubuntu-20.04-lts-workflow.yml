@@ -71,7 +71,7 @@ jobs:
 
       - name: Rust share build
         # Share build cache when building rust API and the example project
-        run: echo '[workspace]\nmembers = ["tools/rust_api","examples/rust"]' > Cargo.toml
+        run: echo $'[workspace]\nmembers = ["tools/rust_api","examples/rust"]' > Cargo.toml
 
       - name: Rust set env
         run: echo "CARGO_BUILD_JOBS=$(nproc)" >> $GITHUB_ENV
