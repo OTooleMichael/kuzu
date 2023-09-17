@@ -6,102 +6,93 @@ on:
     - cron: '0 0 * * *'
 
 jobs:
-  windows-build-test:
-    name: windows build & test
+  ubuntu-2304-debian-build-test:
+    name: ubuntu 23.04 & debian build & test
     strategy:
       matrix:
-        runner: [windows-2019]
-    runs-on: ${{ matrix.runner }}
+        image: ['ubuntu:23.04', 'debian:11', 'debian:12']
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.image }}
+    env:
+      CC: gcc
+      CXX: g++
+      JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
     steps:
+      - name: Install packages
+        run: |
+          apt-get update
+          apt-get install -y build-essential cmake gcc g++ python3 python3-dev python3-pip npm openjdk-17-jdk curl
+      
+      - name: Install Node.js 16 for Debian 11
+        if: matrix.image == 'debian:11'
+        run: |
+          mkdir -p /etc/apt/keyrings
+          curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+          NODE_MAJOR=16
+          echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
+          apt-get update
+          apt-get install -y nodejs
+
       - uses: actions/checkout@v3
 
-      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Ensure Python dependencies
+        run: |
+          pip install torch~=2.0.0 --extra-index-url https://download.pytorch.org/whl/cpu ${{ matrix.image != 'debian:11' && '--break-system-packages' || '' }}
+          pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-2.0.0+cpu.html ${{ matrix.image != 'debian:11' && '--break-system-packages' || '' }}
 
-      # - uses: actions/setup-python@v4
-      #   with:
-      #     python-version: '3.8'
+      - name: Ensure Node.js dependencies
+        run: npm install --include=dev
+        working-directory: tools/nodejs_api
 
-      # - name: Ensure Python dependencies
-      #   shell: cmd
-      #   run: |
-      #     pip install torch~=2.0.0 --extra-index-url https://download.pytorch.org/whl/cpu
-      #     pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-2.0.0+cpu.html
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-update-default-toolchain
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          $HOME/.cargo/bin/rustup toolchain install 1.67
 
-      # - name: Ensure Node.js dependencies
-      #   shell: cmd
-      #   run: npm install --include=dev
-      #   working-directory: tools/nodejs_api
+      - name: Build and test
+        run: make release NUM_THREADS=$(nproc)
 
-      # - name: Build and test
-      #   shell: cmd
-      #   run: make release NUM_THREADS=%NUMBER_OF_PROCESSORS%
+      - name: C Example
+        working-directory: examples/c
+        run: |
+          mkdir build -p
+          cd build
+          cmake ..
+          cmake --build .
 
-      # - name: C Example
-      #   # temporarily disabled due to bug
-      #   if: false
-      #   shell: cmd
-      #   working-directory: examples/c
-      #   run: |
-      #     mkdir build
-      #     cd build
-      #     cmake ..
-      #     cmake --build .
+      - name: C++ Example
+        working-directory: examples/cpp
+        run: |
+          mkdir build -p
+          cd build
+          cmake ..
+          cmake --build .
 
-      # - name: C++ Example
-      #   # temporarily disabled due to bug
-      #   if: false
-      #   shell: cmd
-      #   working-directory: examples/cpp
-      #   run: |
-      #     mkdir build
-      #     cd build
-      #     cmake ..
-      #     cmake --build .
+      - name: Python test
+        run: make pytest NUM_THREADS=$(nproc)
+      
+      - name: Node.js test
+        run: make nodejstest NUM_THREADS=$(nproc)
 
-      # - name: Python test
-      #   # temporarily disabled due to bug
-      #   if: false
-      #   shell: cmd
-      #   run: make pytest NUM_THREADS=%NUMBER_OF_PROCESSORS%
+      - name: Java test
+        run: make javatest NUM_THREADS=$(nproc)
 
-      # - name: Node.js test
-      #   shell: cmd
-      #   run: make nodejstest NUM_THREADS=%NUMBER_OF_PROCESSORS%
+      - name: Rust share build
+        # Share build cache when building rust API and the example project
+        run: echo '[workspace]\nmembers = ["tools/rust_api","examples/rust"]' > Cargo.toml
 
-      # - name: Java test
-      #   shell: cmd
-      #   run: make javatest NUM_THREADS=%NUMBER_OF_PROCESSORS%
+      - name: Rust set env
+        run: echo "CARGO_BUILD_JOBS=$(nproc)" >> $GITHUB_ENV
 
-      - run: choco install openssl
+      - name: Rust test
+        working-directory: tools/rust_api
+        run: |
+          cargo update -p half@2.3.1 --precise '2.2.1'
+          cargo update -p time --precise '0.3.23'
+          cargo test --features arrow -- --test-threads=1
 
-      - run: |
-          dir "C:\Program Files\OpenSSL-Win64"
-          dir "C:\Program Files\OpenSSL-Win64\bin"
-          dir "C:\Program Files\OpenSSL-Win64\lib"
-          dir "C:\Program Files\OpenSSL-Win64\lib\VC"
-
-      # - name: Rust share build
-      #   shell: cmd
-      #   # Share build cache when building rust API and the example project
-      #   run: (echo [workspace]& echo members = ["tools/rust_api","examples/rust"]) > Cargo.toml
-
-      # - name: Rust test
-      #   shell: cmd
-      #   working-directory: tools/rust_api
-      #   run: |
-      #     set OPENSSL_DIR="C:\Program Files\OpenSSL-Win64"
-      #     set KUZU_TESTING=1
-      #     set CFLAGS=/MDd
-      #     set CXXFLAGS=/MDd /std:c++20
-      #     set LDFLAGS=/LIBPATH:"C:\Program Files\OpenSSL-Win64\lib"
-      #     set CARGO_BUILD_JOBS=%NUMBER_OF_PROCESSORS%
-      #     cargo update -p half@2.3.1 --precise '2.2.1'
-      #     cargo update -p time --precise '0.3.23'
-      #     cargo test --features arrow -- --test-threads=1
-
-      # - name: Rust example
-      #   shell: cmd
-      #   working-directory: examples/rust
-      #   run: |
-      #     set CARGO_BUILD_JOBS=%NUMBER_OF_PROCESSORS%
-      #     cargo build --features arrow
+      - name: Rust example
+        working-directory: examples/rust
+        run: cargo build --features arrow
