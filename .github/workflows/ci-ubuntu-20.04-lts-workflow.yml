@@ -10,7 +10,7 @@ jobs:
     name: rockylinux build & test
     strategy:
       matrix:
-        image: ['rockylinux:9']
+        image: ['fedora:38']
     runs-on: ubuntu-latest
     container:
       image: ${{ matrix.image }}
