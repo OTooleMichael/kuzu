@@ -23,6 +23,7 @@ jobs:
         run: |
           dnf update -y
           dnf install -y git cmake ${{ matrix.image == 'rockylinux:8' && 'gcc-toolset-12 python39 python39-devel' || 'gcc gcc-c++ python3-devel npm' }} java-17-openjdk-devel
+          echo "/opt/rh/gcc-toolset-12/root/usr/bin" >> $GITHUB_PATH
 
       - name: Install Node.js 16 for Rocky Linux 8
         if: matrix.image == 'rockylinux:8'
@@ -49,7 +50,6 @@ jobs:
 
       - name: Build and test
         run: |
-          scl load gcc-toolset-12
           make release NUM_THREADS=$(nproc)
 
       - name: C Example
