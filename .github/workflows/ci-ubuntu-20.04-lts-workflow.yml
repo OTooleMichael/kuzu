@@ -32,24 +32,24 @@ jobs:
 
       - uses: actions/checkout@v3
 
-      - name: Ensure Python dependencies
-        run: |
-          pip3 install torch~=2.0.0 --extra-index-url https://download.pytorch.org/whl/cpu
-          pip3 install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-2.0.0+cpu.html
+      # - name: Ensure Python dependencies
+      #   run: |
+      #     pip3 install torch~=2.0.0 --extra-index-url https://download.pytorch.org/whl/cpu
+      #     pip3 install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-2.0.0+cpu.html
 
-      - name: Ensure Node.js dependencies
-        run: npm install --include=dev
-        working-directory: tools/nodejs_api
+      # - name: Ensure Node.js dependencies
+      #   run: npm install --include=dev
+      #   working-directory: tools/nodejs_api
 
-      - name: Install Rust
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-update-default-toolchain
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-          $HOME/.cargo/bin/rustup toolchain install 1.67
+      # - name: Install Rust
+      #   run: |
+      #     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-update-default-toolchain
+      #     echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      #     $HOME/.cargo/bin/rustup toolchain install 1.67
 
       - name: Build and test
         run: |
-          scl enable gcc-toolset-12 bash
+          scl load gcc-toolset-12
           make release NUM_THREADS=$(nproc)
 
       - name: C Example
