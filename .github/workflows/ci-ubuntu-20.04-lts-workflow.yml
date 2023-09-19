@@ -23,30 +23,30 @@ jobs:
         run: |
           dnf update -y
           dnf install -y git cmake ${{ matrix.image == 'rockylinux:8' && 'gcc-toolset-12 python39 python39-devel' || 'gcc gcc-c++ python3-devel npm' }} java-17-openjdk-devel
-          echo "/opt/rh/gcc-toolset-12/root/usr/bin" >> $GITHUB_PATH
 
-      - name: Install Node.js 16 for Rocky Linux 8
+      - name: Enable gcc-toolset-12 and install Node.js 16 for Rocky Linux 8
         if: matrix.image == 'rockylinux:8'
         run: |
+          echo "/opt/rh/gcc-toolset-12/root/usr/bin" >> $GITHUB_PATH
           dnf install -y https://rpm.nodesource.com/pub_16.x/nodistro/repo/nodesource-release-nodistro-1.noarch.rpm
           dnf install -y nodejs --setopt=nodesource-nodejs.module_hotfixes=1
 
       - uses: actions/checkout@v3
 
-      # - name: Ensure Python dependencies
-      #   run: |
-      #     pip3 install torch~=2.0.0 --extra-index-url https://download.pytorch.org/whl/cpu
-      #     pip3 install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-2.0.0+cpu.html
+      - name: Ensure Python dependencies
+        run: |
+          pip3 install torch~=2.0.0 --extra-index-url https://download.pytorch.org/whl/cpu
+          pip3 install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-2.0.0+cpu.html
 
-      # - name: Ensure Node.js dependencies
-      #   run: npm install --include=dev
-      #   working-directory: tools/nodejs_api
+      - name: Ensure Node.js dependencies
+        run: npm install --include=dev
+        working-directory: tools/nodejs_api
 
-      # - name: Install Rust
-      #   run: |
-      #     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-update-default-toolchain
-      #     echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-      #     $HOME/.cargo/bin/rustup toolchain install 1.67
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-update-default-toolchain
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          $HOME/.cargo/bin/rustup toolchain install 1.67
 
       - name: Build and test
         run: |
