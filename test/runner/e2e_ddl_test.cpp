@@ -760,5 +760,16 @@ TEST_F(TinySnbDDLTest, RenamePropertyRecovery) {
     renameProperty(TransactionTestType::RECOVERY);
 }
 
+class TinySnbDDLTest1 : public DBTest {
+
+public:
+    std::string getInputDir() override { return TestHelper::appendKuzuRootPath("dataset/test/"); }
+};
+
+TEST_F(TinySnbDDLTest1, RenamePropertyRecovery) {
+    conn->setMaxNumThreadForExec(2);
+    printf("%s", conn->query("match (t:test) return *")->toString().c_str());
+}
+
 } // namespace testing
 } // namespace kuzu
