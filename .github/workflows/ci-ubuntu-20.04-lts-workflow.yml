@@ -6,14 +6,11 @@ on:
     - cron: '0 0 * * *'
 
 jobs:
-  rockylinux-fedora-build-test:
-    name: rockylinux & fedora-38 build & test
-    strategy:
-      matrix:
-        image: ['rockylinux:8', 'rockylinux:9', 'fedora:38']
+  archlinuxlatest-build-test:
+    name: archlinux-latest build & test
     runs-on: ubuntu-latest
     container:
-      image: ${{ matrix.image }}
+      image: archlinux:latest
     env:
       CC: gcc
       CXX: g++
@@ -21,22 +18,15 @@ jobs:
     steps:
       - name: Install packages
         run: |
-          dnf update -y
-          dnf install -y git cmake ${{ matrix.image == 'rockylinux:8' && 'gcc-toolset-12 python39 python39-devel' || 'gcc gcc-c++ python3-devel npm' }} java-17-openjdk-devel
-
-      - name: Enable gcc-toolset-12 and install Node.js 16 for Rocky Linux 8
-        if: matrix.image == 'rockylinux:8'
-        run: |
-          echo "/opt/rh/gcc-toolset-12/root/usr/bin" >> $GITHUB_PATH
-          dnf install -y https://rpm.nodesource.com/pub_16.x/nodistro/repo/nodesource-release-nodistro-1.noarch.rpm
-          dnf install -y nodejs --setopt=nodesource-nodejs.module_hotfixes=1
+          pacman -Syu --noconfirm
+          pacman -S --needed --noconfirm git base-devel cmake gcc python python-pip npm jdk17-openjdk
 
       - uses: actions/checkout@v3
 
       - name: Ensure Python dependencies
         run: |
-          pip3 install torch~=2.0.0 --extra-index-url https://download.pytorch.org/whl/cpu
-          pip3 install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-2.0.0+cpu.html
+          pip install torch~=2.0.0 --extra-index-url https://download.pytorch.org/whl/cpu --break-system-packages
+          pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-2.0.0+cpu.html --break-system-packages
 
       - name: Ensure Node.js dependencies
         run: npm install --include=dev
@@ -68,18 +58,12 @@ jobs:
           cmake --build .
 
       - name: Python test
-        # temporarily disabled due to bug
-        if: matrix.image != 'fedora:38'
         run: make pytest NUM_THREADS=$(nproc)
       
       - name: Node.js test
-        # temporarily disabled due to bug
-        if: matrix.image != 'fedora:38'
         run: make nodejstest NUM_THREADS=$(nproc)
 
       - name: Java test
-        # temporarily disabled due to bug
-        if: matrix.image != 'fedora:38'
         run: make javatest NUM_THREADS=$(nproc)
 
       - name: Rust share build
