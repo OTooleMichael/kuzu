@@ -6,11 +6,11 @@ on:
     - cron: '0 0 * * *'
 
 jobs:
-  rockylinux-build-test:
-    name: rockylinux build & test
+  rockylinux-fedora-build-test:
+    name: rockylinux & fedora-38 build & test
     strategy:
       matrix:
-        image: ['fedora:38']
+        image: ['rockylinux:8', 'rockylinux:9', 'fedora:38']
     runs-on: ubuntu-latest
     container:
       image: ${{ matrix.image }}
@@ -22,7 +22,14 @@ jobs:
       - name: Install packages
         run: |
           dnf update -y
-          dnf install -y git cmake gcc gcc-c++ ${{ matrix.image == 'rockylinux:8' && 'python39 python39-devel' || 'python3-devel' }} npm java-17-openjdk-devel
+          dnf install -y git cmake ${{ matrix.image == 'rockylinux:8' && 'gcc-toolset-12 python39 python39-devel' || 'gcc gcc-c++ python3-devel npm' }} java-17-openjdk-devel
+
+      - name: Enable gcc-toolset-12 and install Node.js 16 for Rocky Linux 8
+        if: matrix.image == 'rockylinux:8'
+        run: |
+          echo "/opt/rh/gcc-toolset-12/root/usr/bin" >> $GITHUB_PATH
+          dnf install -y https://rpm.nodesource.com/pub_16.x/nodistro/repo/nodesource-release-nodistro-1.noarch.rpm
+          dnf install -y nodejs --setopt=nodesource-nodejs.module_hotfixes=1
 
       - uses: actions/checkout@v3
 
