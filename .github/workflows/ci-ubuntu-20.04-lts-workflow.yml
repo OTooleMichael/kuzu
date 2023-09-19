@@ -10,7 +10,7 @@ jobs:
     name: rockylinux build & test
     strategy:
       matrix:
-        image: ['fedora:38']
+        image: ['rockylinux:8']
     runs-on: ubuntu-latest
     container:
       image: ${{ matrix.image }}
@@ -22,7 +22,13 @@ jobs:
       - name: Install packages
         run: |
           dnf update -y
-          dnf install -y git cmake gcc gcc-c++ ${{ matrix.image == 'rockylinux:8' && 'python39 python39-devel' || 'python3-devel' }} npm java-17-openjdk-devel
+          dnf install -y git cmake ${{ matrix.image == 'rockylinux:8' && 'gcc-toolset-12 python39 python39-devel' || 'gcc gcc-c++ python3-devel npm' }} java-17-openjdk-devel
+
+      - name: Install Node.js 16 for Rocky Linux 8
+        if: matrix.image == 'rockylinux:8'
+        run: |
+          dnf install -y https://rpm.nodesource.com/pub_16.x/nodistro/repo/nodesource-release-nodistro-1.noarch.rpm
+          dnf install -y nodejs --setopt=nodesource-nodejs.module_hotfixes=1
 
       - uses: actions/checkout@v3
 
@@ -42,7 +48,9 @@ jobs:
           $HOME/.cargo/bin/rustup toolchain install 1.67
 
       - name: Build and test
-        run: make release NUM_THREADS=$(nproc)
+        run: |
+          scl enable gcc-toolset-12 bash
+          make release NUM_THREADS=$(nproc)
 
       - name: C Example
         working-directory: examples/c
@@ -61,17 +69,13 @@ jobs:
           cmake --build .
 
       - name: Python test
-        # temporarily disabled due to bug
-        if: matrix.image != 'fedora:38'
         run: make pytest NUM_THREADS=$(nproc)
       
       - name: Node.js test
         run: make nodejstest NUM_THREADS=$(nproc)
-        continue-on-error: true
 
       - name: Java test
         run: make javatest NUM_THREADS=$(nproc)
-        continue-on-error: true
 
       - name: Rust share build
         # Share build cache when building rust API and the example project
