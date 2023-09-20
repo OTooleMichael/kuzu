@@ -14,7 +14,7 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapSemiMasker(LogicalOperator* log
     auto semiMasker = (LogicalSemiMasker*)logicalOperator;
     auto inSchema = semiMasker->getChild(0)->getSchema();
     auto prevOperator = mapOperator(logicalOperator->getChild(0).get());
-    auto node = semiMasker->getNode();
+//    auto node = semiMasker->getNode();
     std::unordered_map<table_id_t, std::vector<SemiMaskerInfo::mask_with_idx>> masksPerTable;
     for (auto tableID : node->getTableIDs()) {
         masksPerTable.insert({tableID, std::vector<SemiMaskerInfo::mask_with_idx>{}});

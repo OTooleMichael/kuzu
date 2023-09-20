@@ -23,8 +23,8 @@ void CardinalityEstimator::initNodeIDDom(QueryGraph* queryGraph) {
 }
 
 uint64_t CardinalityEstimator::estimateScanNode(LogicalOperator* op) {
-    auto scanNode = (LogicalScanNode*)op;
-    return atLeastOne(getNodeIDDom(scanNode->getNode()->getInternalIDPropertyName()));
+    auto scanInternalID = (LogicalScanInternalID*)op;
+    return atLeastOne(getNodeIDDom(scanInternalID->getInternalID()->getUniqueName()));
 }
 
 uint64_t CardinalityEstimator::estimateHashJoin(

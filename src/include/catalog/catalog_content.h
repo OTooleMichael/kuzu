@@ -38,8 +38,8 @@ public:
     inline bool containRelTable(const std::string& tableName) const {
         return containTable(tableName, common::TableType::REL);
     }
-    inline bool containRelGroup(const std::string& tableName) const {
-        return containTable(tableName, common::TableType::REL_GROUP);
+    inline bool containRdfGraph(const std::string& tableName) const {
+        return containTable(tableName, common::TableType::RDF);
     }
     inline std::string getTableName(common::table_id_t tableID) const {
         assert(tableSchemas.contains(tableID));

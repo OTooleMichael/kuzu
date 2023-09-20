@@ -86,8 +86,11 @@ std::shared_ptr<LogicalOperator> FilterPushDownOptimizer::visitCrossProductRepla
 std::shared_ptr<planner::LogicalOperator> FilterPushDownOptimizer::visitScanNodePropertyReplace(
     std::shared_ptr<planner::LogicalOperator> op) {
     auto scanNodeProperty = (LogicalScanNodeProperty*)op.get();
-    assert(scanNodeProperty->getChild(0)->getOperatorType() == LogicalOperatorType::SCAN_NODE);
-    auto node = ((LogicalScanNode&)*scanNodeProperty->getChild(0)).getNode();
+    assert(scanNodeProperty->getChild(0)->getOperatorType() == LogicalOperatorType::SCAN_INTERNAL_ID);
+//    auto node = ((LogicalScanNode&)*scanNodeProperty->getChild(0)).getNode();
+    auto scanInternalID = reinterpret_cast<LogicalScanInternalID*>(op->getChild(0).get());
+    std::shared_ptr<Expression> primaryKeyEqualityComparison = nullptr;
+    if ()
     auto primaryKeyEqualityComparison = predicateSet->popNodePKEqualityComparison(*node);
     if (primaryKeyEqualityComparison != nullptr) { // Try rewrite index scan
         auto rhs = primaryKeyEqualityComparison->getChild(1);
@@ -190,13 +193,14 @@ void FilterPushDownOptimizer::PredicateSet::addPredicate(
     }
 }
 
-static bool isNodePrimaryKey(const Expression& expression, const NodeExpression& node) {
+static bool isNodePrimaryKey(const Expression& expression, const Expression& nodeID) {
     if (expression.expressionType != ExpressionType::PROPERTY) {
         // not property
         return false;
     }
     auto& propertyExpression = (PropertyExpression&)expression;
-    if (propertyExpression.getVariableName() != node.getUniqueName()) {
+    assert(nodeID.expressionType == ExpressionType::PROPERTY);
+    if (propertyExpression.getVariableName() != ((const PropertyExpression&)nodeID).getVariableName()) {
         // not property for node
         return false;
     }
@@ -205,7 +209,7 @@ static bool isNodePrimaryKey(const Expression& expression, const NodeExpression&
 
 std::shared_ptr<binder::Expression>
 FilterPushDownOptimizer::PredicateSet::popNodePKEqualityComparison(
-    const binder::NodeExpression& node) {
+    const binder::Expression& nodeID) {
     if (node.isMultiLabeled()) { // Multi-labeled node scan can not be converted to index scan.
         return nullptr;
     }
@@ -213,10 +217,10 @@ FilterPushDownOptimizer::PredicateSet::popNodePKEqualityComparison(
     auto resultPredicateIdx = INVALID_VECTOR_IDX;
     for (auto i = 0u; i < equalityPredicates.size(); ++i) {
         auto predicate = equalityPredicates[i];
-        if (isNodePrimaryKey(*predicate->getChild(0), node)) {
+        if (isNodePrimaryKey(*predicate->getChild(0), nodeID)) {
             resultPredicateIdx = i;
             break;
-        } else if (isNodePrimaryKey(*predicate->getChild(1), node)) {
+        } else if (isNodePrimaryKey(*predicate->getChild(1), nodeID)) {
             // Normalize primary key to LHS.
             auto leftChild = predicate->getChild(0);
             auto rightChild = predicate->getChild(1);

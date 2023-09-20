@@ -208,23 +208,26 @@ private:
         const std::shared_ptr<NodeExpression>& rightNode, QueryGraph& queryGraph,
         PropertyKeyValCollection& collection);
     std::shared_ptr<RelExpression> createNonRecursiveQueryRel(const std::string& parsedName,
-        const std::vector<common::table_id_t>& tableIDs, std::shared_ptr<NodeExpression> srcNode,
+        const std::vector<std::string>& tableNames, std::shared_ptr<NodeExpression> srcNode,
         std::shared_ptr<NodeExpression> dstNode, RelDirectionType directionType);
     std::shared_ptr<RelExpression> createRecursiveQueryRel(const parser::RelPattern& relPattern,
         const std::vector<common::table_id_t>& tableIDs, std::shared_ptr<NodeExpression> srcNode,
         std::shared_ptr<NodeExpression> dstNode, RelDirectionType directionType);
     std::pair<uint64_t, uint64_t> bindVariableLengthRelBound(const parser::RelPattern& relPattern);
     void bindQueryRelProperties(RelExpression& rel);
+    void bindQueryRelRdfInfo(RelExpression& rel, const std::vector<common::table_id_t>& rdfGraphIDs);
     /*** bind graph node ***/
     std::shared_ptr<NodeExpression> bindQueryNode(const parser::NodePattern& nodePattern,
         QueryGraph& queryGraph, PropertyKeyValCollection& collection);
     std::shared_ptr<NodeExpression> createQueryNode(const parser::NodePattern& nodePattern);
     std::shared_ptr<NodeExpression> createQueryNode(
-        const std::string& parsedName, const std::vector<common::table_id_t>& tableIDs);
+        const std::string& parsedName, const std::string& uniqueName, const std::vector<common::table_id_t>& tableIDs);
     void bindQueryNodeProperties(NodeExpression& node);
 
-    std::vector<common::table_id_t> bindNodeTableIDs(const std::vector<std::string>& tableNames) const;
-    std::vector<common::table_id_t> bindRelTableIDs(const std::vector<std::string>& tableNames) const;
+    std::vector<common::table_id_t> bindNodeTableIDs(
+        const std::vector<std::string>& tableNames) const;
+    std::vector<common::table_id_t> bindRelTableIDs(
+        const std::vector<std::string>& tableNames) const;
     std::vector<common::table_id_t> bindRelTableIDs(const std::string& tableName) const;
     common::table_id_t bindNodeTableID(const std::string& tableName) const;
 

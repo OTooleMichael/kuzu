@@ -80,16 +80,31 @@ static std::unordered_set<table_id_t> getNbrNodeTableIDSet(
 void QueryPlanner::appendNonRecursiveExtend(std::shared_ptr<NodeExpression> boundNode,
     std::shared_ptr<NodeExpression> nbrNode, std::shared_ptr<RelExpression> rel,
     ExtendDirection direction, const expression_vector& properties, LogicalPlan& plan) {
+    // Filter bound node label if we know some incoming nodes won't have any outgoing rel. This
+    // cannot be done at binding time because the pruning is also affected by extend direction.
     auto boundNodeTableIDSet = getBoundNodeTableIDSet(*rel, direction, catalog);
     if (boundNode->getNumTableIDs() > boundNodeTableIDSet.size()) {
         appendNodeLabelFilter(boundNode->getInternalIDProperty(), boundNodeTableIDSet, plan);
     }
+    // Check 1-N or 1-1 extend.
     auto hasAtMostOneNbr = extendHasAtMostOneNbrGuarantee(*rel, *boundNode, direction, catalog);
+    // Prune
+    expression_vector propertiesScanFromRelTable;
+    expression_vector propertiesScanFromNodeTable;
+    for (auto& property : properties) {
+        // split
+    }
     auto extend = make_shared<LogicalExtend>(
-        boundNode, nbrNode, rel, direction, properties, hasAtMostOneNbr, plan.getLastOperator());
+        boundNode, nbrNode, rel, direction, propertiesScanFromRelTable, hasAtMostOneNbr, plan.getLastOperator());
     appendFlattens(extend->getGroupsPosToFlatten(), plan);
     extend->setChild(0, plan.getLastOperator());
     extend->computeFactorizedSchema();
+    // Append Hash join
+    auto rightPlan = std::make_unique<LogicalPlan>();
+    appendScanNodeID();
+    appendScanNodeProperties();
+    appendHashJoin();
+
     // update cost
     plan.setCost(CostModel::computeExtendCost(plan));
     // update cardinality. Note that extend does not change cardinality.
@@ -99,6 +114,7 @@ void QueryPlanner::appendNonRecursiveExtend(std::shared_ptr<NodeExpression> boun
         group->setMultiplier(extensionRate);
     }
     plan.setLastOperator(std::move(extend));
+    // Filter out
     auto nbrNodeTableIDSet = getNbrNodeTableIDSet(*rel, direction, catalog);
     if (nbrNodeTableIDSet.size() > nbrNode->getNumTableIDs()) {
         appendNodeLabelFilter(nbrNode->getInternalIDProperty(), nbrNode->getTableIDsSet(), plan);

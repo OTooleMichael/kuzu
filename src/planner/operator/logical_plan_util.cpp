@@ -46,8 +46,8 @@ void LogicalPlanUtil::encodeJoinRecursive(
         encodeRecursiveExtend(logicalOperator, encodeString);
         encodeJoinRecursive(logicalOperator->getChild(0).get(), encodeString);
     } break;
-    case LogicalOperatorType::SCAN_NODE: {
-        encodeScanNodeID(logicalOperator, encodeString);
+    case LogicalOperatorType::SCAN_INTERNAL_ID: {
+        encodeScanInternalID(logicalOperator, encodeString);
     } break;
     default:
         for (auto i = 0u; i < logicalOperator->getNumChildren(); ++i) {
@@ -83,10 +83,10 @@ void LogicalPlanUtil::encodeRecursiveExtend(
     encodeString += "RE(" + logicalExtend->getNbrNode()->toString() + ")";
 }
 
-void LogicalPlanUtil::encodeScanNodeID(
+void LogicalPlanUtil::encodeScanInternalID(
     LogicalOperator* logicalOperator, std::string& encodeString) {
-    auto logicalScanNode = (LogicalScanNode*)logicalOperator;
-    encodeString += "S(" + logicalScanNode->getNode()->toString() + ")";
+    auto scanInternalID = reinterpret_cast<LogicalScanInternalID*>(logicalOperator);
+    encodeString += "S(" + scanInternalID->getInternalID()->toString() + ")";
 }
 
 } // namespace planner

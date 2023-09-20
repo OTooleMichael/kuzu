@@ -15,6 +15,15 @@ enum class RelDirectionType : uint8_t {
 class RelExpression;
 
 struct RecursiveInfo {
+    /*
+     * E.g. [e*1..2 (r, n) | WHERE n.age > 10 AND r.year = 2012 ]
+     * lowerBound = 1
+     * upperBound = 2
+     * node = n
+     * nodeCopy = n (see comment below)
+     * rel = r
+     * predicates = [n.age > 10, r.year = 2012]
+     * */
     uint64_t lowerBound;
     uint64_t upperBound;
     std::shared_ptr<NodeExpression> node;
@@ -31,6 +40,12 @@ struct RecursiveInfo {
         : lowerBound{lowerBound}, upperBound{upperBound}, node{std::move(node)},
           nodeCopy{std::move(nodeCopy)}, rel{std::move(rel)},
           lengthExpression{std::move(lengthExpression)}, predicates{std::move(predicates)} {}
+};
+
+struct RdfRelInfo {
+    std::shared_ptr<NodeExpression> predicateNode;
+
+    RdfRelInfo(std::shared_ptr<NodeExpression> predicateNode) : predicateNode{std::move(predicateNode)}  {}
 };
 
 class RelExpression : public NodeOrRelExpression {
@@ -72,6 +87,11 @@ public:
         return recursiveInfo->lengthExpression;
     }
 
+    inline bool hasRdfInfo() const { return rdfInfo != nullptr; }
+    inline void setRdfInfo(std::unique_ptr<RdfRelInfo> info) {
+        rdfInfo = std::move(info);
+    }
+
     inline bool isSelfLoop() const { return *srcNode == *dstNode; }
 
 private:
@@ -80,6 +100,7 @@ private:
     RelDirectionType directionType;
     common::QueryRelType relType;
     std::unique_ptr<RecursiveInfo> recursiveInfo;
+    std::unique_ptr<RdfRelInfo> rdfInfo;
 };
 
 } // namespace binder

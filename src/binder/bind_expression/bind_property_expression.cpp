@@ -112,7 +112,7 @@ std::shared_ptr<Expression> ExpressionBinder::bindStructPropertyExpression(
     return bindScalarFunctionExpression(children, STRUCT_EXTRACT_FUNC_NAME);
 }
 
-static void validatePropertiesWithSameDataType(const std::vector<Property*>& properties,
+static void validatePropertiesWithSameDataType(const std::vector<std::unique_ptr<catalog::Property>>& properties,
     const LogicalType& dataType, const std::string& propertyName, const std::string& variableName) {
     auto propertyLookup = variableName + "." + propertyName;
     for (auto& property : properties) {
@@ -126,7 +126,7 @@ static void validatePropertiesWithSameDataType(const std::vector<Property*>& pro
 }
 
 static std::unordered_map<table_id_t, property_id_t> populatePropertyIDPerTable(
-    const std::vector<Property*>& properties) {
+    const std::vector<std::unique_ptr<catalog::Property>>& properties) {
     std::unordered_map<table_id_t, property_id_t> propertyIDPerTable;
     for (auto& property : properties) {
         propertyIDPerTable.insert({property->getTableID(), property->getPropertyID()});
@@ -135,9 +135,9 @@ static std::unordered_map<table_id_t, property_id_t> populatePropertyIDPerTable(
 }
 
 std::unique_ptr<Expression> ExpressionBinder::createPropertyExpression(
-    const Expression& nodeOrRel, const std::vector<Property*>& properties, bool isPrimaryKey) {
+    const Expression& nodeOrRel, const std::vector<std::unique_ptr<catalog::Property>>& properties, bool isPrimaryKey) {
     assert(!properties.empty());
-    auto anchorProperty = properties[0];
+    auto anchorProperty = properties[0].get();
     validatePropertiesWithSameDataType(properties, *anchorProperty->getDataType(),
         anchorProperty->getName(), nodeOrRel.toString());
     return make_unique<PropertyExpression>(*anchorProperty->getDataType(),

@@ -1,29 +1,31 @@
 #pragma once
 
-#include "binder/expression/node_expression.h"
 #include "planner/operator/logical_operator.h"
 
 namespace kuzu {
 namespace planner {
 
-class LogicalScanNode : public LogicalOperator {
+
+class LogicalScanInternalID : public LogicalOperator {
 public:
-    explicit LogicalScanNode(std::shared_ptr<binder::NodeExpression> node)
-        : LogicalOperator{LogicalOperatorType::SCAN_NODE}, node{std::move(node)} {}
+    explicit LogicalScanInternalID(std::shared_ptr<binder::Expression> internalID, std::vector<common::table_id_t> tableIDs)
+        : LogicalOperator{LogicalOperatorType::SCAN_INTERNAL_ID}, internalID{std::move(internalID)}, tableIDs{std::move(tableIDs)} {}
 
     void computeFactorizedSchema() override;
     void computeFlatSchema() override;
 
-    inline std::string getExpressionsForPrinting() const override { return node->toString(); }
+    inline std::string getExpressionsForPrinting() const override { return internalID->toString(); }
 
-    inline std::shared_ptr<binder::NodeExpression> getNode() const { return node; }
+    inline std::shared_ptr<binder::Expression> getInternalID() const { return internalID; }
+    inline std::vector<common::table_id_t> getTableIDs() const { return tableIDs; }
 
     inline std::unique_ptr<LogicalOperator> copy() override {
-        return make_unique<LogicalScanNode>(node);
+        return make_unique<LogicalScanInternalID>(internalID, tableIDs);
     }
 
 private:
-    std::shared_ptr<binder::NodeExpression> node;
+    std::shared_ptr<binder::Expression> internalID;
+    std::vector<common::table_id_t> tableIDs;
 };
 
 } // namespace planner

@@ -171,11 +171,11 @@ bool LogicalHashJoin::isJoinKeyUniqueOnBuildSide(const binder::Expression& joinN
         }
         op = op->getChild(0).get();
     }
-    if (op->getOperatorType() != LogicalOperatorType::SCAN_NODE) {
+    if (op->getOperatorType() != LogicalOperatorType::SCAN_INTERNAL_ID) {
         return false;
     }
-    auto scanNodeID = (LogicalScanNode*)op;
-    if (scanNodeID->getNode()->getInternalIDPropertyName() != joinNodeID.getUniqueName()) {
+    auto scanInternalID = (LogicalScanInternalID*)op;
+    if (scanInternalID->getInternalID()->getUniqueName() != joinNodeID.getUniqueName()) {
         return false;
     }
     return true;

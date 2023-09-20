@@ -4,6 +4,12 @@
 --
 
 -CASE TinyRDFTest
+-STATEMENT MATCH (s:tiny)-[p:tiny]->(o:tiny) RETURN s.IRI, p.IRI, o.IRI
+---- 2
+http://dbpedia.org/class/yago/'hood108641944|http://dbpedia.org/class/yago/Vicinity108641113
+http://dbpedia.org/class/yago/14July115200493|http://dbpedia.org/class/yago/LegalHoliday115199592
+
+
 -STATEMENT MATCH (s:tiny) RETURN COUNT(s.IRI)
 ---- 1
 22

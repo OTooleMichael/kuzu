@@ -175,17 +175,12 @@ std::unique_ptr<BoundCreateTableInfo> Binder::bindCreateRelTableGroupInfo(
         TableType::REL_GROUP, info->tableName, std::move(boundExtraInfo));
 }
 
-static constexpr char RDF_IRI[] = "IRI";
-static constexpr char RDF_PREDICT_ID[] = "PREDICT_ID";
-static constexpr char RDF_NODE_TABLE_SUFFIX[] = "_RESOURCE";
-static constexpr char RDF_REL_TABLE_SUFFIX[] = "_TRIPLES";
-
 static inline std::string getRdfNodeTableName(const std::string& rdfName) {
-    return rdfName + RDF_NODE_TABLE_SUFFIX;
+    return rdfName + RDFKeyword::NODE_TABLE_SUFFIX;
 }
 
 static inline std::string getRdfRelTableName(const std::string& rdfName) {
-    return rdfName + RDF_REL_TABLE_SUFFIX;
+    return rdfName + RDFKeyword::REL_TABLE_SUFFIX;
 }
 
 std::unique_ptr<BoundCreateTableInfo> Binder::bindCreateRdfGraphInfo(const CreateTableInfo* info) {
@@ -194,7 +189,7 @@ std::unique_ptr<BoundCreateTableInfo> Binder::bindCreateRdfGraphInfo(const Creat
     // RDF node (resource) table
     auto nodeTableName = getRdfNodeTableName(rdfGraphName);
     std::vector<std::unique_ptr<Property>> nodeProperties;
-    nodeProperties.push_back(std::make_unique<Property>(RDF_IRI, stringType->copy()));
+    nodeProperties.push_back(std::make_unique<Property>(RDFKeyword::IRI, stringType->copy()));
     auto boundNodeExtraInfo = std::make_unique<BoundExtraCreateNodeTableInfo>(
         0 /* primaryKeyIdx */, std::move(nodeProperties));
     auto boundNodeCreateInfo = std::make_unique<BoundCreateTableInfo>(
@@ -203,7 +198,7 @@ std::unique_ptr<BoundCreateTableInfo> Binder::bindCreateRdfGraphInfo(const Creat
     auto relTableName = getRdfRelTableName(rdfGraphName);
     std::vector<std::unique_ptr<Property>> relProperties;
     relProperties.push_back(std::make_unique<Property>(
-        RDF_PREDICT_ID, std::make_unique<LogicalType>(LogicalTypeID::INTERNAL_ID)));
+        RDFKeyword::PREDICT_ID, std::make_unique<LogicalType>(LogicalTypeID::INTERNAL_ID)));
     auto boundRelExtraInfo = std::make_unique<BoundExtraCreateRelTableInfo>(
         RelMultiplicity::MANY_MANY, INVALID_TABLE_ID, INVALID_TABLE_ID, std::move(relProperties));
     auto boundRelCreateInfo = std::make_unique<BoundCreateTableInfo>(

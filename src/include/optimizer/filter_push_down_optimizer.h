@@ -66,7 +66,7 @@ private:
 
         void addPredicate(std::shared_ptr<binder::Expression> predicate);
         std::shared_ptr<binder::Expression> popNodePKEqualityComparison(
-            const binder::NodeExpression& node);
+            const binder::Expression& nodeID);
     };
 
 private:

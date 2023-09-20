@@ -112,8 +112,6 @@ private:
     void planBaseTableScans(
         SubqueryType subqueryType, const expression_vector& correlatedExpressions);
     void planCorrelatedExpressionsScan(const binder::expression_vector& correlatedExpressions);
-    std::unique_ptr<LogicalPlan> getCorrelatedExpressionScanPlan(
-        const binder::expression_vector& correlatedExpressions);
     void planNodeScan(uint32_t nodePos);
     void planNodeIDScan(uint32_t nodePos);
     void planRelScan(uint32_t relPos);
@@ -193,6 +191,7 @@ private:
         ExtendDirection direction, const expression_vector& predicates, LogicalPlan& plan);
     void createPathNodePropertyScanPlan(
         std::shared_ptr<NodeExpression> recursiveNode, LogicalPlan& plan);
+
     void createPathRelPropertyScanPlan(std::shared_ptr<NodeExpression> recursiveNode,
         std::shared_ptr<NodeExpression> nbrNode, std::shared_ptr<RelExpression> recursiveRel,
         ExtendDirection direction, LogicalPlan& plan);

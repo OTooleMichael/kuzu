@@ -6,15 +6,15 @@ using namespace kuzu::planner;
 
 namespace kuzu {
 namespace processor {
+// TODO:rename file
 
-std::unique_ptr<PhysicalOperator> PlanMapper::mapScanNode(LogicalOperator* logicalOperator) {
-    auto logicalScan = (LogicalScanNode*)logicalOperator;
+std::unique_ptr<PhysicalOperator> PlanMapper::mapScanInternalID(LogicalOperator* logicalOperator) {
+    auto logicalScan = (LogicalScanInternalID*)logicalOperator;
     auto outSchema = logicalScan->getSchema();
-    auto node = logicalScan->getNode();
     auto& nodesStore = storageManager.getNodesStore();
-    auto dataPos = DataPos(outSchema->getExpressionPos(*node->getInternalIDProperty()));
+    auto dataPos = DataPos(outSchema->getExpressionPos(*logicalScan->getInternalID()));
     auto sharedState = std::make_shared<ScanNodeIDSharedState>();
-    for (auto& tableID : node->getTableIDs()) {
+    for (auto& tableID : logicalScan->getTableIDs()) {
         auto nodeTable = nodesStore.getNodeTable(tableID);
         sharedState->addTableState(nodeTable);
     }

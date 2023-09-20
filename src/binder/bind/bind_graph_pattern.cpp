@@ -138,49 +138,32 @@ static std::vector<table_id_t> pruneRelTableIDs(const Catalog& catalog_,
     return result;
 }
 
-static std::vector<std::pair<std::string, std::vector<Property*>>> getPropertyNameAndSchemasPairs(
-    const std::vector<std::string>& propertyNames,
-    std::unordered_map<std::string, std::vector<Property*>> propertyNamesToSchemas) {
-    std::vector<std::pair<std::string, std::vector<Property*>>> propertyNameAndSchemasPairs;
-    for (auto& propertyName : propertyNames) {
-        auto propertySchemas = propertyNamesToSchemas.at(propertyName);
-        propertyNameAndSchemasPairs.emplace_back(propertyName, std::move(propertySchemas));
-    }
-    return propertyNameAndSchemasPairs;
-}
-
-static std::vector<std::pair<std::string, std::vector<Property*>>>
-getRelPropertyNameAndPropertiesPairs(const std::vector<RelTableSchema*>& relTableSchemas) {
-    std::vector<std::string> propertyNames; // preserve order as specified in catalog.
-    std::unordered_map<std::string, std::vector<Property*>> propertyNamesToSchemas;
-    for (auto& relTableSchema : relTableSchemas) {
-        for (auto& property : relTableSchema->properties) {
-            auto propertyName = property->getName();
-            if (!propertyNamesToSchemas.contains(propertyName)) {
-                propertyNames.push_back(propertyName);
-                propertyNamesToSchemas.emplace(propertyName, std::vector<Property*>{});
+// Collect the union of property names across multiple table schemas.
+static std::vector<std::string> getPropertyNames(const std::vector<TableSchema*>& tableSchemas) {
+    std::vector<std::string> result;
+    std::unordered_set<std::string> propertyNamesSet;
+    for (auto& tableSchema : tableSchemas) {
+        for (auto& property : tableSchema->properties) {
+            if (propertyNamesSet.contains(property->getName())) {
+                continue ;
             }
-            propertyNamesToSchemas.at(propertyName).push_back(property.get());
+            result.push_back(property->getName());
         }
     }
-    return getPropertyNameAndSchemasPairs(propertyNames, propertyNamesToSchemas);
+    return result;
 }
 
-static std::vector<std::pair<std::string, std::vector<Property*>>>
-getNodePropertyNameAndPropertiesPairs(const std::vector<NodeTableSchema*>& nodeTableSchemas) {
-    std::vector<std::string> propertyNames; // preserve order as specified in catalog.
-    std::unordered_map<std::string, std::vector<Property*>> propertyNamesToSchemas;
-    for (auto& nodeTableSchema : nodeTableSchemas) {
-        for (auto& property : nodeTableSchema->properties) {
-            auto propertyName = property->getName();
-            if (!propertyNamesToSchemas.contains(propertyName)) {
-                propertyNames.push_back(propertyName);
-                propertyNamesToSchemas.emplace(propertyName, std::vector<Property*>{});
-            }
-            propertyNamesToSchemas.at(propertyName).push_back(property.get());
+// Collect properties under the same name across multiple table schemas.
+static std::vector<std::unique_ptr<Property>> getProperties(const std::string& name, const std::vector<TableSchema*>& tableSchemas) {
+    std::vector<std::unique_ptr<Property>> result;
+    for (auto& tableSchema : tableSchemas) {
+        if (!tableSchema->containProperty(name)) {
+            continue;
         }
+        auto propertyID = tableSchema->getPropertyID(name);
+        result.push_back(tableSchema->getProperty(propertyID)->copy());
     }
-    return getPropertyNameAndSchemasPairs(propertyNames, propertyNamesToSchemas);
+    return result;
 }
 
 std::shared_ptr<RelExpression> Binder::bindQueryRel(const RelPattern& relPattern,
@@ -197,7 +180,7 @@ std::shared_ptr<RelExpression> Binder::bindQueryRel(const RelPattern& relPattern
         throw BinderException("Bind relationship " + parsedName +
                               " to relationship with same name is not supported.");
     }
-    auto tableIDs = bindRelTableIDs(relPattern.getTableNames());
+//    auto tableIDs = bindRelTableIDs(relPattern.getTableNames());
     // bind src & dst node
     RelDirectionType directionType;
     std::shared_ptr<NodeExpression> srcNode;
@@ -226,7 +209,7 @@ std::shared_ptr<RelExpression> Binder::bindQueryRel(const RelPattern& relPattern
     // bind variable length
     std::shared_ptr<RelExpression> queryRel;
     if (QueryRelTypeUtils::isRecursive(relPattern.getRelType())) {
-        queryRel = createRecursiveQueryRel(relPattern, tableIDs, srcNode, dstNode, directionType);
+        queryRel = createRecursiveQueryRel(relPattern, relPattern.getTableNames(), srcNode, dstNode, directionType);
     } else {
         if (directionType == RelDirectionType::SINGLE) {
             // We perform table ID pruning as an optimization. BOTH direction type requires a more
@@ -255,13 +238,24 @@ std::shared_ptr<RelExpression> Binder::bindQueryRel(const RelPattern& relPattern
 }
 
 std::shared_ptr<RelExpression> Binder::createNonRecursiveQueryRel(const std::string& parsedName,
-    const std::vector<table_id_t>& tableIDs, std::shared_ptr<NodeExpression> srcNode,
+    const std::vector<std::string>& tableNames, std::shared_ptr<NodeExpression> srcNode,
     std::shared_ptr<NodeExpression> dstNode, RelDirectionType directionType) {
+    auto tableIDs = bindRelTableIDs(tableNames);
+    bool hasRdfTable = false;
+    std::vector<TableSchema*> rdfGraphSchemas;
+    for (auto& tableName : tableNames) {
+        if (catalog.getReadOnlyVersion()->containRdfGraph(tableName)) {
+            hasRdfTable = true;
+        }
+    }
     auto queryRel = make_shared<RelExpression>(LogicalType(LogicalTypeID::REL),
         getUniqueExpressionName(parsedName), parsedName, tableIDs, std::move(srcNode),
         std::move(dstNode), directionType, QueryRelType::NON_RECURSIVE);
     queryRel->setAlias(parsedName);
     bindQueryRelProperties(*queryRel);
+    if (!rdfGraphSchemas.empty()) {
+
+    }
     queryRel->setLabelExpression(expressionBinder.bindLabelFunction(*queryRel));
     std::vector<std::unique_ptr<StructField>> relFields;
     relFields.push_back(std::make_unique<StructField>(
@@ -277,6 +271,7 @@ std::shared_ptr<RelExpression> Binder::createNonRecursiveQueryRel(const std::str
     }
     RelType::setExtraTypeInfo(
         queryRel->getDataTypeReference(), std::make_unique<StructTypeInfo>(std::move(relFields)));
+    // if
     return queryRel;
 }
 
@@ -291,9 +286,10 @@ std::shared_ptr<RelExpression> Binder::createRecursiveQueryRel(const parser::Rel
         recursiveNodeTableIDs.insert(relTableSchema->getDstTableID());
     }
     auto recursiveRelPatternInfo = relPattern.getRecursiveInfo();
-    auto tmpNode = createQueryNode(InternalKeyword::ANONYMOUS,
+    auto anonymousName = InternalKeyword::ANONYMOUS;
+    auto tmpNode = createQueryNode(anonymousName, getUniqueExpressionName(anonymousName),
         std::vector<table_id_t>{recursiveNodeTableIDs.begin(), recursiveNodeTableIDs.end()});
-    auto tmpNodeCopy = createQueryNode(InternalKeyword::ANONYMOUS,
+    auto tmpNodeCopy = createQueryNode(anonymousName, getUniqueExpressionName(anonymousName),
         std::vector<table_id_t>{recursiveNodeTableIDs.begin(), recursiveNodeTableIDs.end()});
     auto prevScope = saveScope();
     scope->clear();
@@ -353,17 +349,31 @@ std::pair<uint64_t, uint64_t> Binder::bindVariableLengthRelBound(
 }
 
 void Binder::bindQueryRelProperties(RelExpression& rel) {
-    std::vector<RelTableSchema*> tableSchemas;
+    auto catalogContent = catalog.getReadOnlyVersion();
+    std::vector<TableSchema*> tableSchemas;
     for (auto tableID : rel.getTableIDs()) {
-        tableSchemas.push_back(reinterpret_cast<RelTableSchema*>(
-            catalog.getReadOnlyVersion()->getTableSchema(tableID)));
+        tableSchemas.push_back(catalogContent->getTableSchema(tableID));
     }
-    for (auto& [propertyName, propertySchemas] :
-        getRelPropertyNameAndPropertiesPairs(tableSchemas)) {
+    auto propertyNames = getPropertyNames(tableSchemas);
+    for (auto& name : propertyNames) {
+        auto properties = getProperties(name, tableSchemas);
         auto propertyExpression = expressionBinder.createPropertyExpression(
-            rel, propertySchemas, false /* isPrimaryKey */);
-        rel.addPropertyExpression(propertyName, std::move(propertyExpression));
+            rel, properties, false /* isPrimaryKey */);
+        rel.addPropertyExpression(name, std::move(propertyExpression));
     }
+}
+
+void Binder::bindQueryRelRdfInfo(RelExpression& rel, const std::vector<table_id_t>& rdfGraphIDs) {
+    std::vector<std::unique_ptr<Property>> properties;
+    for (auto tableID : rdfGraphIDs) {
+        auto property = std::make_unique<Property>(RDFKeyword::IRI,
+            std::make_unique<LogicalType>(LogicalTypeID::STRING), INVALID_PROPERTY_ID, tableID);
+        properties.push_back(std::move(property));
+    }
+    auto propertyExpression = expressionBinder.createPropertyExpression(rel, properties, false /* isPrimaryKey */);
+    rel.addPropertyExpression(RDFKeyword::IRI, std::move(propertyExpression));
+    auto predicateNode = createQueryNode(rel.getVariableName(), rel.getUniqueName(), rdfGraphIDs);
+    rel.setRdfInfo(std::make_unique<RdfRelInfo>(std::move(predicateNode)));
 }
 
 std::shared_ptr<NodeExpression> Binder::bindQueryNode(
@@ -399,13 +409,13 @@ std::shared_ptr<NodeExpression> Binder::bindQueryNode(
 std::shared_ptr<NodeExpression> Binder::createQueryNode(const NodePattern& nodePattern) {
     auto parsedName = nodePattern.getVariableName();
     auto tableIDs = bindNodeTableIDs(nodePattern.getTableNames());
-    return createQueryNode(parsedName, tableIDs);
+    return createQueryNode(parsedName, getUniqueExpressionName(parsedName), tableIDs);
 }
 
 std::shared_ptr<NodeExpression> Binder::createQueryNode(
-    const std::string& parsedName, const std::vector<table_id_t>& tableIDs) {
+    const std::string& parsedName, const std::string& uniqueName, const std::vector<table_id_t>& tableIDs) {
     auto queryNode = make_shared<NodeExpression>(LogicalType(LogicalTypeID::NODE),
-        getUniqueExpressionName(parsedName), parsedName, tableIDs);
+        uniqueName, parsedName, tableIDs);
     queryNode->setAlias(parsedName);
     bindQueryNodeProperties(*queryNode);
     queryNode->setInternalIDProperty(expressionBinder.createInternalNodeIDExpression(*queryNode));
@@ -426,21 +436,21 @@ std::shared_ptr<NodeExpression> Binder::createQueryNode(
 }
 
 void Binder::bindQueryNodeProperties(NodeExpression& node) {
-    std::vector<NodeTableSchema*> tableSchemas;
+    std::vector<TableSchema*> tableSchemas;
     for (auto tableID : node.getTableIDs()) {
-        tableSchemas.push_back(reinterpret_cast<NodeTableSchema*>(
-            catalog.getReadOnlyVersion()->getTableSchema(tableID)));
+        tableSchemas.push_back(catalog.getReadOnlyVersion()->getTableSchema(tableID));
     }
-    for (auto& [propertyName, propertySchemas] :
-        getNodePropertyNameAndPropertiesPairs(tableSchemas)) {
+    auto pkID = reinterpret_cast<NodeTableSchema*>(tableSchemas[0])->getPrimaryKey()->getPropertyID();
+    auto propertyNames = getPropertyNames(tableSchemas);
+    for (auto& name : propertyNames) {
+        auto properties = getProperties(name, tableSchemas);
         bool isPrimaryKey = false;
         if (!node.isMultiLabeled()) {
-            isPrimaryKey = tableSchemas[0]->getPrimaryKey()->getPropertyID() ==
-                           propertySchemas[0]->getPropertyID();
+            isPrimaryKey = pkID == properties[0]->getPropertyID();
         }
-        auto propertyExpression =
-            expressionBinder.createPropertyExpression(node, propertySchemas, isPrimaryKey);
-        node.addPropertyExpression(propertyName, std::move(propertyExpression));
+        auto propertyExpression = expressionBinder.createPropertyExpression(
+            node, properties, isPrimaryKey);
+        node.addPropertyExpression(name, std::move(propertyExpression));
     }
 }
 

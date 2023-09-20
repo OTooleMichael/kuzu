@@ -368,17 +368,17 @@ void QueryPlanner::planWCOJoin(uint32_t leftLevel, uint32_t rightLevel) {
     }
 }
 
-static LogicalScanNode* getSequentialScanNodeOperator(LogicalOperator* op) {
+static LogicalScanInternalID* getScanInternalID(LogicalOperator* op) {
     switch (op->getOperatorType()) {
     case LogicalOperatorType::FLATTEN:
     case LogicalOperatorType::FILTER:
     case LogicalOperatorType::SCAN_NODE_PROPERTY:
     case LogicalOperatorType::EXTEND:
     case LogicalOperatorType::PROJECTION: { // operators we directly search through
-        return getSequentialScanNodeOperator(op->getChild(0).get());
+        return getScanInternalID(op->getChild(0).get());
     }
-    case LogicalOperatorType::SCAN_NODE: {
-        return (LogicalScanNode*)op;
+    case LogicalOperatorType::SCAN_INTERNAL_ID: {
+        return (LogicalScanInternalID*)op;
     }
     default:
         return nullptr;
@@ -387,11 +387,11 @@ static LogicalScanNode* getSequentialScanNodeOperator(LogicalOperator* op) {
 
 // Check whether given node ID has sequential guarantee on the plan.
 static bool isNodeSequentialOnPlan(LogicalPlan& plan, const NodeExpression& node) {
-    auto sequentialScanNode = getSequentialScanNodeOperator(plan.getLastOperator().get());
-    if (sequentialScanNode == nullptr) {
+    auto scanInternalID = getScanInternalID(plan.getLastOperator().get());
+    if (scanInternalID == nullptr) {
         return false;
     }
-    return sequentialScanNode->getNode()->getUniqueName() == node.getUniqueName();
+    return scanInternalID->getInternalID()->getUniqueName() == node.getInternalIDProperty()->getUniqueName();
 }
 
 // As a heuristic for wcoj, we always pick rel scan that starts from the bound node.
