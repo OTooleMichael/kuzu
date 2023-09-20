@@ -58,7 +58,7 @@ struct NullNodeColumnFunc {
 };
 
 struct BoolNodeColumnFunc {
-    static void readValuesFromPage(uint8_t* frame, PageElementCursor& pageCursor,
+    static void readValuesFromPageToVector(uint8_t* frame, PageElementCursor& pageCursor,
         ValueVector* resultVector, uint32_t posInVector, uint32_t numValuesToRead,
         const CompressionMetadata& metadata) {
         // Read bit-packed null flags from the frame into the result vector
@@ -81,9 +81,12 @@ struct BoolNodeColumnFunc {
             posInVector, (uint64_t*)frame, posInFrame, 1);
     }
 
-    static void lookupValueInPage(uint8_t* frame, PageElementCursor& pageCursor, uint8_t* result,
-        uint32_t posInResult, const CompressionMetadata& metadata) {
-        result[posInResult] = NullMask::isNull((uint64_t*)frame, pageCursor.elemPosInPage);
+    static void readValuesFromPage(uint8_t* frame, PageElementCursor& pageCursor, uint8_t* result,
+        uint32_t startPosInResult, uint64_t numValuesToRead, const CompressionMetadata& metadata) {
+        for (auto i = 0; i < numValuesToRead; i++) {
+            result[startPosInResult + i] =
+                NullMask::isNull((uint64_t*)frame, pageCursor.elemPosInPage + i);
+        }
     }
 };
 
@@ -92,18 +95,18 @@ static read_node_column_func_t getReadNodeColumnFunc(const LogicalType& logicalT
     case LogicalTypeID::INTERNAL_ID:
         return InternalIDNodeColumnFunc::readValuesFromPage;
     case LogicalTypeID::BOOL:
-        return BoolNodeColumnFunc::readValuesFromPage;
+        return BoolNodeColumnFunc::readValuesFromPageToVector;
     default:
-        return ReadCompressedValuesFromPage(logicalType);
+        return ReadCompressedValuesFromPageToVector(logicalType);
     }
 }
 
 static lookup_node_column_func_t getLookupNodeColumnFunc(const LogicalType& logicalType) {
     switch (logicalType.getLogicalTypeID()) {
     case LogicalTypeID::BOOL:
-        return BoolNodeColumnFunc::lookupValueInPage;
+        return BoolNodeColumnFunc::readValuesFromPage;
     default:
-        return LookupCompressedValueInPage(logicalType);
+        return ReadCompressedValuesFromPage(logicalType);
     }
 }
 
@@ -147,7 +150,7 @@ void NodeColumn::batchLookup(
         auto nodeGroupIdx = StorageUtils::getNodeGroupIdx(nodeOffset);
         auto chunkMeta = metadataDA->get(nodeGroupIdx, transaction->getType());
         readFromPage(transaction, cursor.pageIdx, [&](uint8_t* frame) -> void {
-            lookupNodeColumnFunc(frame, cursor, result, i, chunkMeta.compMeta);
+            lookupNodeColumnFunc(frame, cursor, result, i, 1, chunkMeta.compMeta);
         });
     }
 }
@@ -182,8 +185,21 @@ void NodeColumn::scan(node_group_idx_t nodeGroupIdx, ColumnChunk* columnChunk) {
         columnChunk->setNumValues(0);
     } else {
         auto chunkMetadata = metadataDA->get(nodeGroupIdx, TransactionType::WRITE);
-        FileUtils::readFromFile(dataFH->getFileInfo(), columnChunk->getData(),
-            columnChunk->getNumBytes(), chunkMetadata.pageIdx * BufferPoolConstants::PAGE_4KB_SIZE);
+        auto cursor = PageElementCursor(chunkMetadata.pageIdx, 0);
+        auto numValuesToScan = chunkMetadata.numValues;
+        uint64_t numValuesScanned = 0;
+        while (numValuesScanned < numValuesToScan) {
+            uint64_t numValuesToScanInPage =
+                std::min((uint64_t)chunkMetadata.compMeta.numValues(
+                             BufferPoolConstants::PAGE_4KB_SIZE, dataType),
+                    numValuesToScan - numValuesScanned);
+            readFromPage(&DUMMY_READ_TRANSACTION, cursor.pageIdx, [&](uint8_t* frame) -> void {
+                lookupNodeColumnFunc(frame, cursor, columnChunk->getData(), numValuesScanned,
+                    numValuesToScanInPage, chunkMetadata.compMeta);
+            });
+            numValuesScanned += numValuesToScanInPage;
+            cursor.nextPage();
+        }
         columnChunk->setNumValues(chunkMetadata.numValues);
     }
 }

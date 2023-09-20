@@ -256,25 +256,25 @@ protected:
     const common::PhysicalTypeID physicalType;
 };
 
-class ReadCompressedValuesFromPage : public CompressedFunctor {
+class ReadCompressedValuesFromPageToVector : public CompressedFunctor {
 public:
-    explicit ReadCompressedValuesFromPage(const common::LogicalType& logicalType)
+    explicit ReadCompressedValuesFromPageToVector(const common::LogicalType& logicalType)
         : CompressedFunctor(logicalType) {}
-    ReadCompressedValuesFromPage(const ReadCompressedValuesFromPage&) = default;
+    ReadCompressedValuesFromPageToVector(const ReadCompressedValuesFromPageToVector&) = default;
 
     void operator()(uint8_t* frame, PageElementCursor& pageCursor,
         common::ValueVector* resultVector, uint32_t posInVector, uint32_t numValuesToRead,
         const CompressionMetadata& metadata);
 };
 
-class LookupCompressedValueInPage : public CompressedFunctor {
+class ReadCompressedValuesFromPage : public CompressedFunctor {
 public:
-    explicit LookupCompressedValueInPage(const common::LogicalType& logicalType)
+    explicit ReadCompressedValuesFromPage(const common::LogicalType& logicalType)
         : CompressedFunctor(logicalType) {}
-    LookupCompressedValueInPage(const LookupCompressedValueInPage&) = default;
+    ReadCompressedValuesFromPage(const ReadCompressedValuesFromPage&) = default;
 
     void operator()(uint8_t* frame, PageElementCursor& pageCursor, uint8_t* result,
-        uint32_t posInResult, const CompressionMetadata& metadata);
+        uint32_t startPosInResult, uint64_t numValuesToRead, const CompressionMetadata& metadata);
 };
 
 class WriteCompressedValueToPage : public CompressedFunctor {

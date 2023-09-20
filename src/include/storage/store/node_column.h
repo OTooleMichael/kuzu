@@ -18,8 +18,9 @@ using read_node_column_func_t = std::function<void(uint8_t* frame, PageElementCu
 using write_node_column_func_t = std::function<void(uint8_t* frame, uint16_t posInFrame,
     common::ValueVector* vector, uint32_t posInVector, const CompressionMetadata& metadata)>;
 
-using lookup_node_column_func_t = std::function<void(uint8_t* frame, PageElementCursor& pageCursor,
-    uint8_t* result, uint32_t posInResult, const CompressionMetadata& metadata)>;
+using lookup_node_column_func_t =
+    std::function<void(uint8_t* frame, PageElementCursor& pageCursor, uint8_t* result,
+        uint32_t posInResult, uint64_t numValues, const CompressionMetadata& metadata)>;
 
 class NullNodeColumn;
 class StructNodeColumn;

@@ -271,7 +271,7 @@ BitpackHeader BitpackHeader::readHeader(uint8_t data) {
     return header;
 }
 
-void ReadCompressedValuesFromPage::operator()(uint8_t* frame, PageElementCursor& pageCursor,
+void ReadCompressedValuesFromPageToVector::operator()(uint8_t* frame, PageElementCursor& pageCursor,
     common::ValueVector* resultVector, uint32_t posInVector, uint32_t numValuesToRead,
     const CompressionMetadata& metadata) {
     switch (metadata.compression) {
@@ -300,20 +300,22 @@ void ReadCompressedValuesFromPage::operator()(uint8_t* frame, PageElementCursor&
     }
 }
 
-void LookupCompressedValueInPage::operator()(uint8_t* frame, PageElementCursor& pageCursor,
-    uint8_t* result, uint32_t posInResult, const CompressionMetadata& metadata) {
+void ReadCompressedValuesFromPage::operator()(uint8_t* frame, PageElementCursor& pageCursor,
+    uint8_t* result, uint32_t startPosInResult, uint64_t numValuesToRead,
+    const CompressionMetadata& metadata) {
     switch (metadata.compression) {
     case CompressionType::UNCOMPRESSED:
-        return copy.getValue(frame, pageCursor.elemPosInPage, result, posInResult, metadata);
+        return copy.decompressFromPage(
+            frame, pageCursor.elemPosInPage, result, startPosInResult, numValuesToRead, metadata);
     case CompressionType::INTEGER_BITPACKING: {
         switch (physicalType) {
         case PhysicalTypeID::INT64: {
-            return IntegerBitpacking<int64_t>().getValue(
-                frame, pageCursor.elemPosInPage, result, posInResult, metadata);
+            return IntegerBitpacking<int64_t>().decompressFromPage(frame, pageCursor.elemPosInPage,
+                result, startPosInResult, numValuesToRead, metadata);
         }
         case PhysicalTypeID::INT32: {
-            return IntegerBitpacking<int32_t>().getValue(
-                frame, pageCursor.elemPosInPage, result, posInResult, metadata);
+            return IntegerBitpacking<int32_t>().decompressFromPage(frame, pageCursor.elemPosInPage,
+                result, startPosInResult, numValuesToRead, metadata);
         }
         default: {
             throw NotImplementedException("INTEGER_BITPACKING is not implemented for type " +
@@ -322,8 +324,8 @@ void LookupCompressedValueInPage::operator()(uint8_t* frame, PageElementCursor& 
         }
     }
     case CompressionType::BOOLEAN_BITPACKING:
-        return booleanBitpacking.getValue(
-            frame, pageCursor.elemPosInPage, result, posInResult, metadata);
+        return booleanBitpacking.decompressFromPage(
+            frame, pageCursor.elemPosInPage, result, startPosInResult, numValuesToRead, metadata);
     }
 }
 

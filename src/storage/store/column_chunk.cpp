@@ -80,6 +80,16 @@ ColumnChunk::ColumnChunk(
         flushBufferFunction = booleanFlushBuffer;
         break;
     }
+    case PhysicalTypeID::INT64: {
+        flushBufferFunction =
+            CompressedFlushBuffer(std::make_unique<IntegerBitpacking<int64_t>>(), this->dataType);
+        break;
+    }
+    case PhysicalTypeID::INT32: {
+        flushBufferFunction =
+            CompressedFlushBuffer(std::make_unique<IntegerBitpacking<int32_t>>(), this->dataType);
+        break;
+    }
     default: {
         flushBufferFunction = fixedSizedFlushBuffer;
     }
