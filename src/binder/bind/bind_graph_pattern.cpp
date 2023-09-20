@@ -4,9 +4,11 @@
 #include "binder/expression/path_expression.h"
 #include "binder/expression/property_expression.h"
 #include "catalog/node_table_schema.h"
+#include "catalog/rdf_graph_schema.h"
 #include "catalog/rel_table_group_schema.h"
 #include "catalog/rel_table_schema.h"
 #include "common/exception/binder.h"
+#include "common/string_utils.h"
 
 using namespace kuzu::common;
 using namespace kuzu::parser;
@@ -442,12 +444,13 @@ void Binder::bindQueryNodeProperties(NodeExpression& node) {
     }
 }
 
-std::vector<table_id_t> Binder::bindNodeTableIDs(const std::vector<std::string>& tableNames) {
+std::vector<table_id_t> Binder::bindNodeTableIDs(const std::vector<std::string>& tableNames) const {
     if (catalog.getReadOnlyVersion()->getNodeTableIDs().empty()) {
         throw BinderException("No node table exists in database.");
     }
     std::unordered_set<table_id_t> tableIDs;
     if (tableNames.empty()) {
+        // Rewrite empty node pattern as all node tables.
         for (auto tableID : catalog.getReadOnlyVersion()->getNodeTableIDs()) {
             tableIDs.insert(tableID);
         }
@@ -461,39 +464,79 @@ std::vector<table_id_t> Binder::bindNodeTableIDs(const std::vector<std::string>&
     return result;
 }
 
-std::vector<table_id_t> Binder::bindRelTableIDs(const std::vector<std::string>& tableNames) {
+common::table_id_t Binder::bindNodeTableID(const std::string& tableName) const {
+    validateTableExist(tableName);
+    auto catalogContent = catalog.getReadOnlyVersion();
+    auto tableID = catalogContent->getTableID(tableName);
+    auto schema = catalogContent->getTableSchema(tableID);
+    switch (schema->tableType) {
+    case TableType::NODE: {
+        return tableID;
+    }
+    case TableType::RDF: {
+        auto rdfGraphSchema = reinterpret_cast<RdfGraphSchema*>(schema);
+        return rdfGraphSchema->getNodeTableID();
+    }
+    default: {
+        auto errorMsg = StringUtils::string_format("Table type mismatch, expect NODE but get {}.",
+            TableTypeUtils::toString(schema->tableType));
+        throw BinderException(errorMsg);
+    }
+    }
+}
+
+std::vector<table_id_t> Binder::bindRelTableIDs(const std::vector<std::string>& tableNames) const {
     auto catalogContent = catalog.getReadOnlyVersion();
     if (catalogContent->getRelTableIDs().empty()) {
         throw BinderException("No rel table exists in database.");
     }
-    // Rewrite empty rel pattern "-[]-" as all rel tables
     std::unordered_set<table_id_t> tableIDs;
     if (tableNames.empty()) {
+        // Rewrite empty rel pattern "-[]-" as all rel tables
         for (auto tableID : catalogContent->getRelTableIDs()) {
             tableIDs.insert(tableID);
         }
-    }
-    for (auto& tableName : tableNames) {
-        validateTableExist(tableName);
-        auto tableID = catalogContent->getTableID(tableName);
-        auto tableSchema = catalogContent->getTableSchema(tableID);
-        switch (tableSchema->getTableType()) {
-        case TableType::REL: {
-            tableIDs.insert(tableID);
-        } break;
-        case TableType::REL_GROUP: {
-            auto relGroupSchema = reinterpret_cast<RelTableGroupSchema*>(tableSchema);
-            for (auto& relTableID : relGroupSchema->getRelTableIDs()) {
-                tableIDs.insert(relTableID);
+    } else {
+        for (auto& tableName : tableNames) {
+            for (auto& tableID : bindRelTableIDs(tableName)) {
+                tableIDs.insert(tableID);
             }
-        } break;
-        default:
-            throw BinderException("Rel table " + tableName + " does not exist.");
         }
     }
     auto result = std::vector<table_id_t>{tableIDs.begin(), tableIDs.end()};
     std::sort(result.begin(), result.end());
     return result;
+}
+
+std::vector<table_id_t> Binder::bindRelTableIDs(const std::string& tableName) const {
+    validateTableExist(tableName);
+    auto catalogContent = catalog.getReadOnlyVersion();
+    auto tableID = catalogContent->getTableID(tableName);
+    auto schema = catalogContent->getTableSchema(tableID);
+    std::vector<common::table_id_t> tableIDs;
+    switch (schema->getTableType()) {
+    case TableType::REL: {
+        tableIDs.push_back(tableID);
+        return tableIDs;
+    }
+    case TableType::RDF: {
+        auto rdfGraphSchema = reinterpret_cast<RdfGraphSchema*>(schema);
+        tableIDs.push_back(rdfGraphSchema->getRelTableID());
+        return tableIDs;
+    }
+    case TableType::REL_GROUP: {
+        auto relGroupSchema = reinterpret_cast<RelTableGroupSchema*>(schema);
+        for (auto& relTableID : relGroupSchema->getRelTableIDs()) {
+            tableIDs.push_back(relTableID);
+        }
+        return tableIDs;
+    }
+    default: {
+        auto errorMsg = StringUtils::string_format("Table type mismatch, expect REL but get {}.",
+            TableTypeUtils::toString(schema->tableType));
+        throw BinderException(errorMsg);
+    }
+    }
 }
 
 } // namespace binder

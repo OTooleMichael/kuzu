@@ -186,7 +186,7 @@ std::string Connection::getNodePropertyNames(const std::string& tableName) {
     auto nodeTableSchema =
         reinterpret_cast<catalog::NodeTableSchema*>(catalogContent->getTableSchema(tableID));
     auto primaryKeyPropertyID = nodeTableSchema->getPrimaryKey()->getPropertyID();
-    for (auto property : catalogContent->getProperties(tableID)) {
+    for (auto property : nodeTableSchema->getProperties()) {
         result += "\t" + property->getName() + " " +
                   LogicalTypeUtils::dataTypeToString(*property->getDataType());
         result += property->getPropertyID() == primaryKeyPropertyID ? "(PRIMARY KEY)\n" : "\n";
@@ -210,7 +210,7 @@ std::string Connection::getRelPropertyNames(const std::string& relTableName) {
     std::string result = relTableName + " src node: " + srcTableSchema->tableName + "\n";
     result += relTableName + " dst node: " + dstTableSchema->tableName + "\n";
     result += relTableName + " properties: \n";
-    for (auto property : catalogContent->getProperties(relTableID)) {
+    for (auto property : relTableSchema->getProperties()) {
         if (catalog::TableSchema::isReservedPropertyName(property->getName())) {
             continue;
         }

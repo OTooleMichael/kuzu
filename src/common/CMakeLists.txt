@@ -17,10 +17,11 @@ add_library(kuzu_common
         metric.cpp
         null_mask.cpp
         profiler.cpp
-        type_utils.cpp
-        utils.cpp
+        ser_deser.cpp
         string_utils.cpp
-        ser_deser.cpp)
+        table_type.cpp
+        type_utils.cpp
+        utils.cpp)
 
 target_link_libraries(kuzu_common Glob)
 

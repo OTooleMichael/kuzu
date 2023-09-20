@@ -111,26 +111,6 @@ table_id_t CatalogContent::addRdfGraphSchema(const BoundCreateTableInfo& info) {
     return rdfGraphID;
 }
 
-Property* CatalogContent::getNodeProperty(
-    table_id_t tableID, const std::string& propertyName) const {
-    for (auto& property : tableSchemas.at(tableID)->properties) {
-        if (propertyName == property->getName()) {
-            return property.get();
-        }
-    }
-    throw CatalogException("Cannot find node property " + propertyName + ".");
-}
-
-Property* CatalogContent::getRelProperty(
-    table_id_t tableID, const std::string& propertyName) const {
-    for (auto& property : tableSchemas.at(tableID)->properties) {
-        if (propertyName == property->getName()) {
-            return property.get();
-        }
-    }
-    throw CatalogException("Cannot find rel property " + propertyName + ".");
-}
-
 std::vector<TableSchema*> CatalogContent::getTableSchemas() const {
     std::vector<TableSchema*> allTableSchemas;
     for (auto&& [_, schema] : tableSchemas) {

@@ -72,14 +72,6 @@ std::shared_ptr<Expression> Binder::bindWhereExpression(const ParsedExpression& 
     return whereExpression;
 }
 
-table_id_t Binder::bindNodeTableID(const std::string& tableName) const {
-    auto catalogContent = catalog.getReadOnlyVersion();
-    if (!catalogContent->containNodeTable(tableName)) {
-        throw BinderException("Node table " + tableName + " does not exist.");
-    }
-    return catalogContent->getTableID(tableName);
-}
-
 std::shared_ptr<Expression> Binder::createVariable(
     const std::string& name, LogicalTypeID logicalTypeID) {
     return createVariable(name, LogicalType{logicalTypeID});
@@ -168,13 +160,13 @@ void Binder::validateReadNotFollowUpdate(const NormalizedSingleQuery& singleQuer
     }
 }
 
-void Binder::validateTableExist(const std::string& tableName) {
+void Binder::validateTableExist(const std::string& tableName) const {
     if (!catalog.getReadOnlyVersion()->containTable(tableName)) {
         throw BinderException("Table " + tableName + " does not exist.");
     }
 }
 
-void Binder::validateNodeRelTableExist(const std::string& tableName) {
+void Binder::validateNodeRelTableExist(const std::string& tableName) const {
     if (!catalog.getReadOnlyVersion()->containNodeTable(tableName) &&
         !catalog.getReadOnlyVersion()->containRelTable(tableName)) {
         throw BinderException("Table " + tableName + " does not exist.");

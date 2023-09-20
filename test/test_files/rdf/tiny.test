@@ -1,0 +1,22 @@
+-GROUP CopyRDFTest
+-DATASET TTL rdf/tiny
+
+--
+
+-CASE TinyRDFTest
+-STATEMENT MATCH (s:tiny) RETURN COUNT(s.IRI)
+---- 1
+22
+-STATEMENT MATCH (s:tiny) RETURN s.IRI ORDER BY s.IRI LIMIT 5
+---- 5
+http://dbpedia.org/class/yago/'hood108641944
+http://dbpedia.org/class/yago/14July115200493
+http://dbpedia.org/class/yago/1530s115148787
+http://dbpedia.org/class/yago/16PF106475933
+http://dbpedia.org/class/yago/1750s115149933
+
+-STATEMENT MATCH (s:tiny)-[p:tiny]->(o:tiny) RETURN s.IRI, p.IRI, o.IRI
+---- 2
+http://dbpedia.org/class/yago/'hood108641944|http://dbpedia.org/class/yago/Vicinity108641113
+http://dbpedia.org/class/yago/14July115200493|http://dbpedia.org/class/yago/LegalHoliday115199592
+

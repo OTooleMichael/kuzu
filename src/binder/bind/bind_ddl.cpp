@@ -175,8 +175,8 @@ std::unique_ptr<BoundCreateTableInfo> Binder::bindCreateRelTableGroupInfo(
         TableType::REL_GROUP, info->tableName, std::move(boundExtraInfo));
 }
 
-static constexpr char RDF_IRI[] = "_IRI";
-static constexpr char RDF_PREDICT_ID[] = "_PREDICT_ID";
+static constexpr char RDF_IRI[] = "IRI";
+static constexpr char RDF_PREDICT_ID[] = "PREDICT_ID";
 static constexpr char RDF_NODE_TABLE_SUFFIX[] = "_RESOURCE";
 static constexpr char RDF_REL_TABLE_SUFFIX[] = "_TRIPLES";
 

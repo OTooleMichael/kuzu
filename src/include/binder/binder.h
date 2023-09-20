@@ -78,8 +78,6 @@ private:
     std::shared_ptr<Expression> bindWhereExpression(
         const parser::ParsedExpression& parsedExpression);
 
-    common::table_id_t bindNodeTableID(const std::string& tableName) const;
-
     std::shared_ptr<Expression> createVariable(
         const std::string& name, common::LogicalTypeID logicalTypeID);
     std::shared_ptr<Expression> createVariable(
@@ -200,12 +198,11 @@ private:
     /*** bind graph pattern ***/
     std::pair<std::unique_ptr<QueryGraphCollection>, std::unique_ptr<PropertyKeyValCollection>>
     bindGraphPattern(const std::vector<std::unique_ptr<parser::PatternElement>>& graphPattern);
-
     std::unique_ptr<QueryGraph> bindPatternElement(
         const parser::PatternElement& patternElement, PropertyKeyValCollection& collection);
     std::shared_ptr<Expression> createPathExpression(
         const std::string& pathName, const expression_vector& children);
-
+    /*** bind query rel ***/
     std::shared_ptr<RelExpression> bindQueryRel(const parser::RelPattern& relPattern,
         const std::shared_ptr<NodeExpression>& leftNode,
         const std::shared_ptr<NodeExpression>& rightNode, QueryGraph& queryGraph,
@@ -218,7 +215,7 @@ private:
         std::shared_ptr<NodeExpression> dstNode, RelDirectionType directionType);
     std::pair<uint64_t, uint64_t> bindVariableLengthRelBound(const parser::RelPattern& relPattern);
     void bindQueryRelProperties(RelExpression& rel);
-
+    /*** bind graph node ***/
     std::shared_ptr<NodeExpression> bindQueryNode(const parser::NodePattern& nodePattern,
         QueryGraph& queryGraph, PropertyKeyValCollection& collection);
     std::shared_ptr<NodeExpression> createQueryNode(const parser::NodePattern& nodePattern);
@@ -226,8 +223,10 @@ private:
         const std::string& parsedName, const std::vector<common::table_id_t>& tableIDs);
     void bindQueryNodeProperties(NodeExpression& node);
 
-    std::vector<common::table_id_t> bindNodeTableIDs(const std::vector<std::string>& tableNames);
-    std::vector<common::table_id_t> bindRelTableIDs(const std::vector<std::string>& tableNames);
+    std::vector<common::table_id_t> bindNodeTableIDs(const std::vector<std::string>& tableNames) const;
+    std::vector<common::table_id_t> bindRelTableIDs(const std::vector<std::string>& tableNames) const;
+    std::vector<common::table_id_t> bindRelTableIDs(const std::string& tableName) const;
+    common::table_id_t bindNodeTableID(const std::string& tableName) const;
 
     /*** validations ***/
     // E.g. ... RETURN a, b AS a
@@ -249,9 +248,9 @@ private:
     // multiple statement.
     static void validateReadNotFollowUpdate(const NormalizedSingleQuery& singleQuery);
 
-    void validateTableExist(const std::string& tableName);
+    void validateTableExist(const std::string& tableName) const;
     // TODO(Xiyang): remove this validation once we refactor DDL.
-    void validateNodeRelTableExist(const std::string& tableName);
+    void validateNodeRelTableExist(const std::string& tableName) const;
 
     static void validateNodeTableHasNoEdge(
         const catalog::Catalog& _catalog, common::table_id_t tableID);
