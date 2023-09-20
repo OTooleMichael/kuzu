@@ -73,6 +73,11 @@ public:
     void populateWithDefaultVal(const catalog::Property& property, NodeColumn* nodeColumn,
         common::ValueVector* defaultValueVector, uint64_t numNodeGroups);
 
+    inline CompressionMetadata getCompressionMetadata(
+        common::node_group_idx_t nodeGroupIdx, transaction::TransactionType transaction) const {
+        return metadataDA->get(nodeGroupIdx, transaction).compMeta;
+    }
+
 protected:
     virtual void scanInternal(transaction::Transaction* transaction,
         common::ValueVector* nodeIDVector, common::ValueVector* resultVector);

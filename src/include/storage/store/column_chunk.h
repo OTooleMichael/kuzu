@@ -132,6 +132,8 @@ public:
 
     inline void setNumValues(uint64_t numValues_) { this->numValues = numValues_; }
 
+    virtual void update(common::ValueVector* vector, common::vector_idx_t vectorIdx);
+
 protected:
     // Initializes the data buffer. Is (and should be) only called in constructor.
     virtual void initialize(common::offset_t capacity);

@@ -19,7 +19,7 @@ public:
     void append(ColumnChunk* other, common::offset_t startPosInOtherChunk,
         common::offset_t startPosInChunk, uint32_t numValuesToAppend) final;
 
-    virtual void update(common::ValueVector* vector, common::vector_idx_t vectorIdx);
+    void update(common::ValueVector* vector, common::vector_idx_t vectorIdx) override;
 
     template<typename T>
     void setValueFromString(const char* value, uint64_t length, uint64_t pos) {

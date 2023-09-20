@@ -686,5 +686,18 @@ void BoolColumnChunk::resize(uint64_t capacity) {
     }
 }
 
+void ColumnChunk::update(ValueVector* vector, vector_idx_t vectorIdx) {
+    auto startOffsetInChunk = vectorIdx << DEFAULT_VECTOR_CAPACITY_LOG_2;
+    for (auto i = 0u; i < vector->state->selVector->selectedSize; i++) {
+        auto pos = vector->state->selVector->selectedPositions[i];
+        auto offsetInChunk = startOffsetInChunk + pos;
+        nullChunk->setNull(offsetInChunk, vector->isNull(pos));
+        if (!vector->isNull(pos)) {
+            memcpy(buffer.get() + offsetInChunk * numBytesPerValue,
+                vector->getData() + pos * numBytesPerValue, numBytesPerValue);
+        }
+    }
+}
+
 } // namespace storage
 } // namespace kuzu

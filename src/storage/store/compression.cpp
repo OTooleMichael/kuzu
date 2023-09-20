@@ -47,6 +47,58 @@ uint32_t getDataTypeSizeInChunk(const common::LogicalType& dataType) {
     }
 }
 
+bool CompressionMetadata::canAlwaysUpdateInPlace() const {
+    switch (compression) {
+    case CompressionType::BOOLEAN_BITPACKING:
+    case CompressionType::UNCOMPRESSED: {
+        return true;
+    }
+    case CompressionType::INTEGER_BITPACKING: {
+        return false;
+    }
+    default: {
+        throw common::StorageException(
+            "Unknown compression type with ID " + std::to_string((uint8_t)compression));
+    }
+    }
+}
+bool CompressionMetadata::canUpdateInPlace(
+    const ValueVector& vector, uint32_t pos, PhysicalTypeID physicalType) const {
+    if (canAlwaysUpdateInPlace()) {
+        return true;
+    }
+    switch (compression) {
+    case CompressionType::BOOLEAN_BITPACKING:
+    case CompressionType::UNCOMPRESSED: {
+        return true;
+    }
+    case CompressionType::INTEGER_BITPACKING: {
+        switch (physicalType) {
+        case PhysicalTypeID::INT64: {
+            auto value = vector.getValue<int64_t>(pos);
+            return IntegerBitpacking<int64_t>::canUpdateInPlace(
+                value, BitpackHeader::readHeader(data));
+        }
+        case PhysicalTypeID::INT32: {
+            auto value = vector.getValue<int32_t>(pos);
+            return IntegerBitpacking<int32_t>::canUpdateInPlace(
+                value, BitpackHeader::readHeader(data));
+        }
+        default: {
+            throw common::StorageException(
+                "Attempted to read from a column chunk which uses integer bitpacking but does not "
+                "have a supported integer physical type: " +
+                PhysicalTypeUtils::physicalTypeToString(physicalType));
+        }
+        }
+    }
+    default: {
+        throw common::StorageException(
+            "Unknown compression type with ID " + std::to_string((uint8_t)compression));
+    }
+    }
+}
+
 uint64_t CompressionMetadata::numValues(uint64_t pageSize, const LogicalType& dataType) const {
     switch (compression) {
     case CompressionType::UNCOMPRESSED: {
@@ -100,6 +152,20 @@ BitpackHeader IntegerBitpacking<T>::getBitWidth(
 }
 
 template<typename T>
+bool IntegerBitpacking<T>::canUpdateInPlace(T value, const BitpackHeader& header) {
+    // If there are negatives, the effective bit width is smaller
+    auto valueSize = std::bit_width((U)std::abs(value));
+    if (!header.hasNegative && value < 0) {
+        return false;
+    }
+    if ((header.hasNegative && valueSize > header.bitWidth - 1) ||
+        (!header.hasNegative && valueSize > header.bitWidth)) {
+        return false;
+    }
+    return true;
+}
+
+template<typename T>
 void IntegerBitpacking<T>::setValueFromUncompressed(uint8_t* srcBuffer, common::offset_t posInSrc,
     uint8_t* dstBuffer, common::offset_t posInDst, const CompressionMetadata& metadata) const {
     auto header = BitpackHeader::readHeader(metadata.data);
@@ -114,17 +180,7 @@ void IntegerBitpacking<T>::setValueFromUncompressed(uint8_t* srcBuffer, common::
     auto chunkStart = getChunkStart(dstBuffer, posInDst, header.bitWidth);
     auto posInChunk = posInDst % CHUNK_SIZE;
     auto value = ((T*)srcBuffer)[posInSrc];
-    // If there are negatives, the effective bit width is smaller
-    auto valueSize = std::bit_width((U)std::abs(value));
-    if (!header.hasNegative && value < 0) {
-        throw NotImplementedException(
-            "Setting negative values to a chunk stored without negatives is not implemented yet");
-    }
-    if ((header.hasNegative && valueSize > header.bitWidth - 1) ||
-        (!header.hasNegative && valueSize > header.bitWidth)) {
-        throw NotImplementedException(
-            "Setting values larger than the bit width is not implemented yet");
-    }
+    assert(canUpdateInPlace(value, header));
 
     U chunk[CHUNK_SIZE];
     FastPForLib::fastunpack((const uint32_t*)chunkStart, chunk, header.bitWidth);

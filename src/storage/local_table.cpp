@@ -174,10 +174,41 @@ void LocalColumn::prepareCommit() {
 }
 
 void LocalColumn::prepareCommitForChunk(node_group_idx_t nodeGroupIdx) {
-    auto nodeGroupStartOffset = StorageUtils::getStartOffsetOfNodeGroup(nodeGroupIdx);
     assert(chunks.contains(nodeGroupIdx));
     auto chunk = chunks.at(nodeGroupIdx).get();
-    for (auto& [vectorIdx, vector] : chunk->vectors) {
+    // Figure out if the chunk needs to be re-compressed
+    auto metadata = column->getCompressionMetadata(nodeGroupIdx, TransactionType::WRITE);
+    auto canUpdateInPlace = true;
+    if (!metadata.canAlwaysUpdateInPlace()) {
+        auto nodeGroupStartOffset = StorageUtils::getStartOffsetOfNodeGroup(nodeGroupIdx);
+        for (auto& [vectorIdx, vector] : chunk->vectors) {
+            auto vectorStartOffset =
+                nodeGroupStartOffset + StorageUtils::getStartOffsetOfVectorInChunk(vectorIdx);
+            for (auto i = 0u; i < vector->vector->state->selVector->selectedSize; i++) {
+                auto pos = vector->vector->state->selVector->selectedPositions[i];
+                assert(vector->validityMask[pos]);
+                if (!metadata.canUpdateInPlace(
+                        *vector->vector, pos, column->getDataType().getPhysicalType())) {
+                    canUpdateInPlace = false;
+                    break;
+                }
+            }
+            if (!canUpdateInPlace) {
+                break;
+            }
+        }
+    }
+    if (canUpdateInPlace) {
+        commitLocalChunkInPlace(nodeGroupIdx, chunk);
+    } else {
+        commitLocalChunkOutOfPlace(nodeGroupIdx, chunk);
+    }
+}
+
+void LocalColumn::commitLocalChunkInPlace(
+    node_group_idx_t nodeGroupIdx, LocalColumnChunk* localChunk) {
+    auto nodeGroupStartOffset = StorageUtils::getStartOffsetOfNodeGroup(nodeGroupIdx);
+    for (auto& [vectorIdx, vector] : localChunk->vectors) {
         auto vectorStartOffset =
             nodeGroupStartOffset + StorageUtils::getStartOffsetOfVectorInChunk(vectorIdx);
         for (auto i = 0u; i < vector->vector->state->selVector->selectedSize; i++) {
@@ -202,27 +233,25 @@ void StringLocalColumn::prepareCommitForChunk(node_group_idx_t nodeGroupIdx) {
     if (overflowMetadata.lastOffsetInPage + ovfStringLengthInChunk <=
         BufferPoolConstants::PAGE_4KB_SIZE) {
         // Write the updated overflow strings to the overflow string buffer.
-        LocalColumn::prepareCommitForChunk(nodeGroupIdx);
+        commitLocalChunkInPlace(nodeGroupIdx, localChunk);
     } else {
         commitLocalChunkOutOfPlace(nodeGroupIdx, localChunk);
     }
 }
 
-void StringLocalColumn::commitLocalChunkOutOfPlace(
+void LocalColumn::commitLocalChunkOutOfPlace(
     node_group_idx_t nodeGroupIdx, LocalColumnChunk* localChunk) {
-    auto stringColumn = reinterpret_cast<StringNodeColumn*>(column);
     // Trigger rewriting the column chunk to another new place.
     auto columnChunk = ColumnChunkFactory::createColumnChunk(column->getDataType());
-    auto stringColumnChunk = reinterpret_cast<StringColumnChunk*>(columnChunk.get());
-    // First scan the whole column chunk into StringColumnChunk.
-    stringColumn->scan(nodeGroupIdx, stringColumnChunk);
+    // First scan the whole column chunk into ColumnChunk.
+    column->scan(nodeGroupIdx, columnChunk.get());
     for (auto& [vectorIdx, vector] : localChunk->vectors) {
-        stringColumnChunk->update(vector->vector.get(), vectorIdx);
+        columnChunk->update(vector->vector.get(), vectorIdx);
     }
-    // Append the updated StringColumnChunk back to column.
-    auto numPages = stringColumnChunk->getNumPages();
+    // Append the updated ColumnChunk back to column.
+    auto numPages = columnChunk->getNumPages();
     auto startPageIdx = column->dataFH->addNewPages(numPages);
-    column->append(stringColumnChunk, startPageIdx, nodeGroupIdx);
+    column->append(columnChunk.get(), startPageIdx, nodeGroupIdx);
 }
 
 void VarListLocalColumn::prepareCommitForChunk(node_group_idx_t nodeGroupIdx) {

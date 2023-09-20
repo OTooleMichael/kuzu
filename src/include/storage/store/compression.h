@@ -37,6 +37,11 @@ struct CompressionMetadata {
     // Returns the number of values which will be stored in the given data size
     // This must be consistent with the compression implementation for the given size
     uint64_t numValues(uint64_t dataSize, const common::LogicalType& dataType) const;
+    // Returns true if and only if the provided value within the vector can be updated
+    // in this chunk in-place.
+    bool canUpdateInPlace(
+        const common::ValueVector& vector, uint32_t pos, common::PhysicalTypeID physicalType) const;
+    bool canAlwaysUpdateInPlace() const;
 };
 
 class CompressionAlg {
@@ -206,6 +211,8 @@ public:
     void decompressFromPage(const uint8_t* srcBuffer, uint64_t srcOffset, uint8_t* dstBuffer,
         uint64_t dstOffset, uint64_t numValues,
         const struct CompressionMetadata& metadata) const final;
+
+    static bool canUpdateInPlace(T value, const BitpackHeader& header);
 
 protected:
     // Read multiple values from within a chunk. Cannot span multiple chunks.
