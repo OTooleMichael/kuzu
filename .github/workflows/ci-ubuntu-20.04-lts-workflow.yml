@@ -6,6 +6,278 @@ on:
     - cron: '0 0 * * *'
 
 jobs:
+  ubuntu-2304-debian-build-test:
+    name: ubuntu 23.04 & debian build & test
+    strategy:
+      matrix:
+        image: ['ubuntu:23.04', 'debian:11', 'debian:12']
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.image }}
+    env:
+      CC: gcc
+      CXX: g++
+      JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+    steps:
+      - name: Install packages
+        run: |
+          apt-get update
+          apt-get install -y curl git build-essential cmake gcc g++ python3 python3-dev python3-pip npm openjdk-17-jdk
+      
+      - name: Install Node.js 16 for Debian 11
+        if: matrix.image == 'debian:11'
+        run: |
+          mkdir -p /etc/apt/keyrings
+          curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+          NODE_MAJOR=16
+          echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
+          apt-get update
+          apt-get install -y nodejs
+
+      - uses: actions/checkout@v3
+
+      - name: Ensure Python dependencies
+        run: |
+          pip install torch~=2.0.0 --extra-index-url https://download.pytorch.org/whl/cpu ${{ matrix.image != 'debian:11' && '--break-system-packages' || '' }}
+          pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-2.0.0+cpu.html ${{ matrix.image != 'debian:11' && '--break-system-packages' || '' }}
+
+      - name: Ensure Node.js dependencies
+        run: npm install --include=dev
+        working-directory: tools/nodejs_api
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-update-default-toolchain
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          $HOME/.cargo/bin/rustup toolchain install 1.67
+
+      - name: Build
+        run: make release NUM_THREADS=$(nproc)
+
+      - name: Test
+        run: make test NUM_THREADS=$(nproc)
+        continue-on-error: true
+  
+      - name: C Example
+        working-directory: examples/c
+        run: |
+          mkdir build -p
+          cd build
+          cmake ..
+          cmake --build .
+
+      - name: C++ Example
+        working-directory: examples/cpp
+        run: |
+          mkdir build -p
+          cd build
+          cmake ..
+          cmake --build .
+
+      - name: Python test
+        run: make pytest NUM_THREADS=$(nproc)
+      
+      - name: Node.js test
+        run: make nodejstest NUM_THREADS=$(nproc)
+
+      - name: Java test
+        run: make javatest NUM_THREADS=$(nproc)
+
+      - name: Rust share build
+        run: echo '[workspace]\nmembers = ["tools/rust_api","examples/rust"]' > Cargo.toml
+
+      - name: Rust set env
+        run: echo "CARGO_BUILD_JOBS=$(nproc)" >> $GITHUB_ENV
+
+      - name: Rust test
+        working-directory: tools/rust_api
+        run: |
+          cargo update -p half@2.3.1 --precise '2.2.1'
+          cargo update -p time --precise '0.3.23'
+          cargo test --features arrow -- --test-threads=1
+
+      - name: Rust example
+        working-directory: examples/rust
+        run: cargo build --features arrow
+
+  rockylinux-fedora-build-test:
+    name: rockylinux & fedora-38 build & test
+    strategy:
+      matrix:
+        image: ['rockylinux:8', 'rockylinux:9', 'fedora:38']
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.image }}
+    env:
+      CC: gcc
+      CXX: g++
+      JAVA_HOME: /usr/lib/jvm/java-17-openjdk
+    steps:
+      - name: Install packages
+        run: |
+          dnf update -y
+          dnf install -y git cmake ${{ matrix.image == 'rockylinux:8' && 'gcc-toolset-12 python39 python39-devel' || 'gcc gcc-c++ python3-devel npm' }} java-17-openjdk-devel
+
+      - name: Enable gcc-toolset-12 and install Node.js 16 for Rocky Linux 8
+        if: matrix.image == 'rockylinux:8'
+        run: |
+          echo "/opt/rh/gcc-toolset-12/root/usr/bin" >> $GITHUB_PATH
+          dnf install -y https://rpm.nodesource.com/pub_16.x/nodistro/repo/nodesource-release-nodistro-1.noarch.rpm
+          dnf install -y nodejs --setopt=nodesource-nodejs.module_hotfixes=1
+
+      - uses: actions/checkout@v3
+
+      - name: Ensure Python dependencies
+        run: |
+          pip3 install torch~=2.0.0 --extra-index-url https://download.pytorch.org/whl/cpu
+          pip3 install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-2.0.0+cpu.html
+
+      - name: Ensure Node.js dependencies
+        run: npm install --include=dev
+        working-directory: tools/nodejs_api
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-update-default-toolchain
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          $HOME/.cargo/bin/rustup toolchain install 1.67
+
+      - name: Build
+        run: make release NUM_THREADS=$(nproc)
+
+      - name: Test
+        run: make test NUM_THREADS=$(nproc)
+        continue-on-error: true
+
+      - name: C Example
+        working-directory: examples/c
+        run: |
+          mkdir build -p
+          cd build
+          cmake ..
+          cmake --build .
+
+      - name: C++ Example
+        working-directory: examples/cpp
+        run: |
+          mkdir build -p
+          cd build
+          cmake ..
+          cmake --build .
+
+      - name: Python test
+        run: make pytest NUM_THREADS=$(nproc)
+        continue-on-error: ${{ matrix.image != 'fedora:38' }}
+      
+      - name: Node.js test
+        run: make nodejstest NUM_THREADS=$(nproc)
+        continue-on-error: ${{ matrix.image != 'fedora:38' }}
+
+      - name: Java test
+        run: make javatest NUM_THREADS=$(nproc)
+        continue-on-error: ${{ matrix.image != 'fedora:38' }}
+
+      - name: Rust share build
+        run: echo $'[workspace]\nmembers = ["tools/rust_api","examples/rust"]' > Cargo.toml
+
+      - name: Rust set env
+        run: echo "CARGO_BUILD_JOBS=$(nproc)" >> $GITHUB_ENV
+
+      - name: Rust test
+        working-directory: tools/rust_api
+        run: |
+          cargo update -p half@2.3.1 --precise '2.2.1'
+          cargo update -p time --precise '0.3.23'
+          cargo test --features arrow -- --test-threads=1
+
+      - name: Rust example
+        working-directory: examples/rust
+        run: cargo build --features arrow
+
+  centos7-build-test:
+    name: centos-7 build & test
+    runs-on: ubuntu-latest
+    container:
+      image: quay.io/pypa/manylinux2014_x86_64
+    env:
+      CC: gcc
+      CXX: g++
+      PYBIND11_PYTHON_VERSION: 3.9
+      PYTHON_EXECUTABLE: /usr/local/bin/python3.9
+      JAVA_HOME: /usr/lib/jvm/java-11-openjdk
+    steps:
+      - name: Install packages
+        run: |
+          yum update -y
+          yum install -y npm java-11-openjdk-devel
+
+      - uses: actions/checkout@v3
+
+      - name: Ensure Python dependencies
+        run: |
+          ln -s /usr/local/bin/python3.9 /usr/bin/python3
+          python3 -m pip install torch~=2.0.0 --extra-index-url https://download.pytorch.org/whl/cpu
+          python3 -m pip install --user -r tools/python_api/requirements_dev.txt -f https://data.pyg.org/whl/torch-2.0.0+cpu.html
+
+      - name: Ensure Node.js dependencies
+        run: npm install --include=dev
+        working-directory: tools/nodejs_api
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-update-default-toolchain
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          $HOME/.cargo/bin/rustup toolchain install 1.67
+
+      - name: Build
+        run: make release NUM_THREADS=$(nproc)
+
+      - name: Test
+        run: make test NUM_THREADS=$(nproc)
+        continue-on-error: true
+
+      - name: C Example
+        working-directory: examples/c
+        run: |
+          mkdir build -p
+          cd build
+          cmake ..
+          cmake --build .
+
+      - name: C++ Example
+        working-directory: examples/cpp
+        run: |
+          mkdir build -p
+          cd build
+          cmake ..
+          cmake --build .
+
+      - name: Python test
+        run: make pytest NUM_THREADS=$(nproc)
+      
+      - name: Node.js test
+        run: make nodejstest NUM_THREADS=$(nproc)
+
+      - name: Java test
+        run: make javatest NUM_THREADS=$(nproc)
+
+      - name: Rust share build
+        run: echo $'[workspace]\nmembers = ["tools/rust_api","examples/rust"]' > Cargo.toml
+
+      - name: Rust set env
+        run: echo "CARGO_BUILD_JOBS=$(nproc)" >> $GITHUB_ENV
+
+      - name: Rust test
+        working-directory: tools/rust_api
+        run: |
+          cargo update -p half@2.3.1 --precise '2.2.1'
+          cargo update -p time --precise '0.3.23'
+          cargo test --features arrow -- --test-threads=1
+
+      - name: Rust example
+        working-directory: examples/rust
+        run: cargo build --features arrow
+
   archlinuxlatest-build-test:
     name: archlinux-latest build & test
     runs-on: ubuntu-latest
@@ -32,58 +304,60 @@ jobs:
         run: npm install --include=dev
         working-directory: tools/nodejs_api
 
-      # - name: Install Rust
-      #   run: |
-      #     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-update-default-toolchain
-      #     echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-      #     $HOME/.cargo/bin/rustup toolchain install 1.67
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-update-default-toolchain
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          $HOME/.cargo/bin/rustup toolchain install 1.67
 
-      - name: Build and test
+      - name: Build
         run: make release NUM_THREADS=$(nproc)
 
-      # - name: C Example
-      #   working-directory: examples/c
-      #   run: |
-      #     mkdir build -p
-      #     cd build
-      #     cmake ..
-      #     cmake --build .
+      - name: Test
+        run: make test NUM_THREADS=$(nproc)
+        continue-on-error: true
 
-      # - name: C++ Example
-      #   working-directory: examples/cpp
-      #   run: |
-      #     mkdir build -p
-      #     cd build
-      #     cmake ..
-      #     cmake --build .
+      - name: C Example
+        working-directory: examples/c
+        run: |
+          mkdir build -p
+          cd build
+          cmake ..
+          cmake --build .
+
+      - name: C++ Example
+        working-directory: examples/cpp
+        run: |
+          mkdir build -p
+          cd build
+          cmake ..
+          cmake --build .
 
       - name: Python test
-        # temporarily disabled due to bug
-        if: false
         run: make pytest NUM_THREADS=$(nproc)
+        continue-on-error: true
       
       - name: Node.js test
         run: make nodejstest NUM_THREADS=$(nproc)
-        # continue-on-error: true
+        continue-on-error: true
 
-      # - name: Java test
-      #   run: make javatest NUM_THREADS=$(nproc)
-      #   continue-on-error: true
+      - name: Java test
+        run: make javatest NUM_THREADS=$(nproc)
+        continue-on-error: true
 
-      # - name: Rust share build
-      #   # Share build cache when building rust API and the example project
-      #   run: echo $'[workspace]\nmembers = ["tools/rust_api","examples/rust"]' > Cargo.toml
+      - name: Rust share build
+        run: echo $'[workspace]\nmembers = ["tools/rust_api","examples/rust"]' > Cargo.toml
 
-      # - name: Rust set env
-      #   run: echo "CARGO_BUILD_JOBS=$(nproc)" >> $GITHUB_ENV
+      - name: Rust set env
+        run: echo "CARGO_BUILD_JOBS=$(nproc)" >> $GITHUB_ENV
 
-      # - name: Rust test
-      #   working-directory: tools/rust_api
-      #   run: |
-      #     cargo update -p half@2.3.1 --precise '2.2.1'
-      #     cargo update -p time --precise '0.3.23'
-      #     cargo test --features arrow -- --test-threads=1
+      - name: Rust test
+        working-directory: tools/rust_api
+        run: |
+          cargo update -p half@2.3.1 --precise '2.2.1'
+          cargo update -p time --precise '0.3.23'
+          cargo test --features arrow -- --test-threads=1
 
-      # - name: Rust example
-      #   working-directory: examples/rust
-      #   run: cargo build --features arrow
+      - name: Rust example
+        working-directory: examples/rust
+        run: cargo build --features arrow
