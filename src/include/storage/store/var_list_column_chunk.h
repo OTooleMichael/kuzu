@@ -52,10 +52,6 @@ public:
     }
 
 private:
-    inline common::page_idx_t getNumPages() const final {
-        return varListDataColumnChunk.dataColumnChunk->getNumPages() + ColumnChunk::getNumPages();
-    }
-
     void append(
         arrow::Array* array, common::offset_t startPosInChunk, uint32_t numValuesToAppend) override;
 

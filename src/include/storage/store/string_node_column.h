@@ -22,8 +22,7 @@ public:
         common::ValueVector* resultVector, uint64_t offsetInVector = 0) final;
     void scan(common::node_group_idx_t nodeGroupIdx, ColumnChunk* columnChunk) final;
 
-    common::page_idx_t append(ColumnChunk* columnChunk, common::page_idx_t startPageIdx,
-        common::node_group_idx_t nodeGroupIdx) final;
+    void append(ColumnChunk* columnChunk, common::node_group_idx_t nodeGroupIdx) final;
 
     void writeValue(common::offset_t nodeOffset, common::ValueVector* vectorToWriteFrom,
         uint32_t posInVectorToWriteFrom) final;

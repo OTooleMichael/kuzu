@@ -19,6 +19,15 @@ namespace storage {
 class NullColumnChunk;
 class CompressionAlg;
 
+struct PreliminaryColumnChunkMetadata {
+    common::page_idx_t numPages;
+    uint64_t numValues;
+    CompressionMetadata compMeta;
+    PreliminaryColumnChunkMetadata(
+        common::page_idx_t numPages, common::page_idx_t numValues, CompressionMetadata compMeta)
+        : numPages{numPages}, numValues{numValues}, compMeta{compMeta} {}
+};
+
 struct BaseColumnChunkMetadata {
     common::page_idx_t pageIdx;
     common::page_idx_t numPages;
@@ -81,8 +90,7 @@ public:
 
     virtual void resetToEmpty();
 
-    // Include pages for null and children segments.
-    virtual common::page_idx_t getNumPages() const;
+    virtual PreliminaryColumnChunkMetadata getMetadataToFlush() const;
 
     virtual void append(common::ValueVector* vector, common::offset_t startPosInChunk);
 
@@ -95,7 +103,8 @@ public:
     virtual void append(
         arrow::Array* array, common::offset_t startPosInChunk, uint32_t numValuesToAppend);
 
-    ColumnChunkMetadata flushBuffer(BMFileHandle* dataFH, common::page_idx_t startPageIdx);
+    ColumnChunkMetadata flushBuffer(BMFileHandle* dataFH, common::page_idx_t startPageIdx,
+        const PreliminaryColumnChunkMetadata& metadata);
 
     // Returns the size of the data type in bytes
     static uint32_t getDataTypeSizeInChunk(common::LogicalType& dataType);
@@ -167,9 +176,11 @@ protected:
     std::vector<std::unique_ptr<ColumnChunk>> childrenChunks;
     std::unique_ptr<common::CSVReaderConfig> csvReaderConfig;
     uint64_t numValues;
-    std::function<ColumnChunkMetadata(
-        const uint8_t*, uint64_t, uint64_t, BMFileHandle*, common::page_idx_t)>
+    std::function<ColumnChunkMetadata(const uint8_t*, uint64_t, BMFileHandle*, common::page_idx_t,
+        const PreliminaryColumnChunkMetadata&)>
         flushBufferFunction;
+    std::function<PreliminaryColumnChunkMetadata(const uint8_t*, uint64_t, uint64_t)>
+        getMetadataFunction;
 };
 
 template<>

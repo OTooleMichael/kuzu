@@ -64,17 +64,15 @@ void StringNodeColumn::scan(node_group_idx_t nodeGroupIdx, ColumnChunk* columnCh
     }
 }
 
-page_idx_t StringNodeColumn::append(
-    ColumnChunk* columnChunk, page_idx_t startPageIdx, node_group_idx_t nodeGroupIdx) {
-    auto numPagesForMainChunk = NodeColumn::append(columnChunk, startPageIdx, nodeGroupIdx);
+void StringNodeColumn::append(ColumnChunk* columnChunk, node_group_idx_t nodeGroupIdx) {
+    NodeColumn::append(columnChunk, nodeGroupIdx);
     auto stringColumnChunk = reinterpret_cast<StringColumnChunk*>(columnChunk);
-    auto numPagesForOverflow =
-        stringColumnChunk->flushOverflowBuffer(dataFH, startPageIdx + numPagesForMainChunk);
+    auto startPageIdx = dataFH->addNewPages(stringColumnChunk->getOverflowFile()->getNumPages());
+    auto numPagesForOverflow = stringColumnChunk->flushOverflowBuffer(dataFH, startPageIdx);
     overflowMetadataDA->resize(nodeGroupIdx + 1);
     overflowMetadataDA->update(
-        nodeGroupIdx, OverflowColumnChunkMetadata{startPageIdx + numPagesForMainChunk,
-                          numPagesForOverflow, stringColumnChunk->getLastOffsetInPage()});
-    return numPagesForMainChunk + numPagesForOverflow;
+        nodeGroupIdx, OverflowColumnChunkMetadata{startPageIdx, numPagesForOverflow,
+                          stringColumnChunk->getLastOffsetInPage()});
 }
 
 void StringNodeColumn::writeValue(

@@ -146,10 +146,8 @@ void NodeTable::delete_(
 void NodeTable::append(NodeGroup* nodeGroup) {
     for (auto columnID = 0u; columnID < columns.size(); columnID++) {
         auto columnChunk = nodeGroup->getColumnChunk(columnID);
-        auto numPages = columnChunk->getNumPages();
-        auto startPageIdx = dataFH->addNewPages(numPages);
         assert(columnID < columns.size());
-        columns[columnID]->append(columnChunk, startPageIdx, nodeGroup->getNodeGroupIdx());
+        columns[columnID]->append(columnChunk, nodeGroup->getNodeGroupIdx());
     }
 }
 

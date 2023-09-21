@@ -35,10 +35,6 @@ public:
     inline InMemOverflowFile* getOverflowFile() { return overflowFile.get(); }
     inline common::offset_t getLastOffsetInPage() { return overflowCursor.offsetInPage; }
 
-    inline common::page_idx_t getNumPages() const final {
-        return ColumnChunk::getNumPages() + overflowFile->getNumPages();
-    }
-
 private:
     template<typename T>
     void templateCopyStringArrowArray(

@@ -52,8 +52,7 @@ public:
     virtual void lookup(transaction::Transaction* transaction, common::ValueVector* nodeIDVector,
         common::ValueVector* resultVector);
 
-    virtual common::page_idx_t append(
-        ColumnChunk* columnChunk, common::page_idx_t startPageIdx, uint64_t nodeGroupIdx);
+    virtual void append(ColumnChunk* columnChunk, uint64_t nodeGroupIdx);
 
     virtual void setNull(common::offset_t nodeOffset);
 
@@ -155,8 +154,7 @@ public:
 
     void lookup(transaction::Transaction* transaction, common::ValueVector* nodeIDVector,
         common::ValueVector* resultVector) final;
-    common::page_idx_t append(
-        ColumnChunk* columnChunk, common::page_idx_t startPageIdx, uint64_t nodeGroupIdx) final;
+    void append(ColumnChunk* columnChunk, uint64_t nodeGroupIdx) final;
     void setNull(common::offset_t nodeOffset) final;
 
 protected:
@@ -174,8 +172,7 @@ public:
         common::ValueVector* resultVector) final;
     void lookup(transaction::Transaction* transaction, common::ValueVector* nodeIDVector,
         common::ValueVector* resultVector) final;
-    common::page_idx_t append(
-        ColumnChunk* columnChunk, common::page_idx_t startPageIdx, uint64_t nodeGroupIdx) final;
+    void append(ColumnChunk* columnChunk, uint64_t nodeGroupIdx) final;
 };
 
 struct NodeColumnFactory {

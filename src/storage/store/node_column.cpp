@@ -1,11 +1,11 @@
 #include "storage/store/node_column.h"
+
 #include <memory>
 
 #include "storage/stats/property_statistics.h"
-
+#include "storage/storage_structure/storage_structure.h"
 #include "storage/store/column_chunk.h"
 #include "storage/store/compression.h"
-#include "storage/storage_structure/storage_structure.h"
 #include "storage/store/string_node_column.h"
 #include "storage/store/struct_node_column.h"
 #include "storage/store/var_list_node_column.h"
@@ -302,29 +302,20 @@ void NodeColumn::readFromPage(
     bufferManager->optimisticRead(*fileHandleToPin, pageIdxToPin, func);
 }
 
-page_idx_t NodeColumn::append(
-    ColumnChunk* columnChunk, page_idx_t startPageIdx, uint64_t nodeGroupIdx) {
+void NodeColumn::append(ColumnChunk* columnChunk, uint64_t nodeGroupIdx) {
     // Main column chunk.
-    page_idx_t numPagesFlushed = 0;
-    auto metadata = columnChunk->flushBuffer(dataFH, startPageIdx);
+    auto preScanMetadata = columnChunk->getMetadataToFlush();
+    auto startPageIdx = dataFH->addNewPages(preScanMetadata.numPages);
+    auto metadata = columnChunk->flushBuffer(dataFH, startPageIdx, preScanMetadata);
     metadataDA->resize(nodeGroupIdx + 1);
     metadataDA->update(nodeGroupIdx, metadata);
-    numPagesFlushed += metadata.numPages;
-    startPageIdx += metadata.numPages;
     // Null column chunk.
-    auto numPagesForNullChunk =
-        nullColumn->append(columnChunk->getNullChunk(), startPageIdx, nodeGroupIdx);
-    numPagesFlushed += numPagesForNullChunk;
-    startPageIdx += numPagesForNullChunk;
+    nullColumn->append(columnChunk->getNullChunk(), nodeGroupIdx);
     // Children column chunks.
     assert(childrenColumns.size() == columnChunk->getNumChildren());
     for (auto i = 0u; i < childrenColumns.size(); i++) {
-        auto numPagesForChild =
-            childrenColumns[i]->append(columnChunk->getChild(i), startPageIdx, nodeGroupIdx);
-        numPagesFlushed += numPagesForChild;
-        startPageIdx += numPagesForChild;
+        childrenColumns[i]->append(columnChunk->getChild(i), nodeGroupIdx);
     }
-    return numPagesFlushed;
 }
 
 void NodeColumn::write(ValueVector* nodeIDVector, ValueVector* vectorToWriteFrom) {
@@ -427,9 +418,7 @@ void NodeColumn::populateWithDefaultVal(const Property& property, NodeColumn* no
         *property.getDataType(), nullptr /* copyDescription */);
     columnChunk->populateWithDefaultVal(defaultValueVector);
     for (auto i = 0u; i < numNodeGroups; i++) {
-        auto numPages = columnChunk->getNumPages();
-        auto startPageIdx = dataFH->addNewPages(numPages);
-        nodeColumn->append(columnChunk.get(), startPageIdx, i);
+        nodeColumn->append(columnChunk.get(), i);
     }
 }
 
@@ -504,15 +493,15 @@ void NullNodeColumn::lookup(
     }
 }
 
-page_idx_t NullNodeColumn::append(
-    ColumnChunk* columnChunk, page_idx_t startPageIdx, uint64_t nodeGroupIdx) {
-    auto metadata = columnChunk->flushBuffer(dataFH, startPageIdx);
+void NullNodeColumn::append(ColumnChunk* columnChunk, uint64_t nodeGroupIdx) {
+    auto preScanMetadata = columnChunk->getMetadataToFlush();
+    auto startPageIdx = dataFH->addNewPages(preScanMetadata.numPages);
+    auto metadata = columnChunk->flushBuffer(dataFH, startPageIdx, preScanMetadata);
     metadataDA->resize(nodeGroupIdx + 1);
     metadataDA->update(nodeGroupIdx, metadata);
     if (static_cast<NullColumnChunk*>(columnChunk)->mayHaveNull()) {
         propertyStatistics.setHasNull(DUMMY_WRITE_TRANSACTION);
     }
-    return metadata.numPages;
 }
 
 void NullNodeColumn::setNull(offset_t nodeOffset) {
@@ -564,10 +553,8 @@ void SerialNodeColumn::lookup(
     }
 }
 
-page_idx_t SerialNodeColumn::append(
-    ColumnChunk* columnChunk, page_idx_t startPageIdx, uint64_t nodeGroupIdx) {
+void SerialNodeColumn::append(ColumnChunk* columnChunk, uint64_t nodeGroupIdx) {
     metadataDA->resize(nodeGroupIdx + 1);
-    return 0;
 }
 
 std::unique_ptr<NodeColumn> NodeColumnFactory::createNodeColumn(const LogicalType& dataType,

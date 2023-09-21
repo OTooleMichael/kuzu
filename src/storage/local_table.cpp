@@ -249,9 +249,7 @@ void LocalColumn::commitLocalChunkOutOfPlace(
         columnChunk->update(vector->vector.get(), vectorIdx);
     }
     // Append the updated ColumnChunk back to column.
-    auto numPages = columnChunk->getNumPages();
-    auto startPageIdx = column->dataFH->addNewPages(numPages);
-    column->append(columnChunk.get(), startPageIdx, nodeGroupIdx);
+    column->append(columnChunk.get(), nodeGroupIdx);
 }
 
 void VarListLocalColumn::prepareCommitForChunk(node_group_idx_t nodeGroupIdx) {
@@ -291,14 +289,11 @@ void VarListLocalColumn::prepareCommitForChunk(node_group_idx_t nodeGroupIdx) {
             nextOffsetToWrite, numNodesInGroup - nextOffsetToWrite);
     }
 
-    auto numPages = columnChunkToUpdate->getNumPages();
-    auto startPageIdx = column->dataFH->addNewPages(numPages);
-    column->append(columnChunkToUpdate.get(), startPageIdx, nodeGroupIdx);
+    column->append(columnChunkToUpdate.get(), nodeGroupIdx);
     auto dataColumnChunk =
         reinterpret_cast<VarListColumnChunk*>(columnChunkToUpdate.get())->getDataColumnChunk();
-    startPageIdx = column->dataFH->addNewPages(dataColumnChunk->getNumPages());
     reinterpret_cast<VarListNodeColumn*>(column)->dataNodeColumn->append(
-        dataColumnChunk, startPageIdx, nodeGroupIdx);
+        dataColumnChunk, nodeGroupIdx);
 }
 
 StructLocalColumn::StructLocalColumn(NodeColumn* column) : LocalColumn{column} {

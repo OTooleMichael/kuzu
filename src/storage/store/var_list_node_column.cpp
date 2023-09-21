@@ -80,13 +80,10 @@ void VarListNodeColumn::lookupValue(Transaction* transaction, offset_t nodeOffse
         listOffset + length, ListVector::getDataVector(resultVector), offsetInVector);
 }
 
-page_idx_t VarListNodeColumn::append(
-    ColumnChunk* columnChunk, page_idx_t startPageIdx, uint64_t nodeGroupIdx) {
-    auto numPagesFlushed = NodeColumn::append(columnChunk, startPageIdx, nodeGroupIdx);
+void VarListNodeColumn::append(ColumnChunk* columnChunk, uint64_t nodeGroupIdx) {
+    NodeColumn::append(columnChunk, nodeGroupIdx);
     auto dataColumnChunk = reinterpret_cast<VarListColumnChunk*>(columnChunk)->getDataColumnChunk();
-    auto numPagesForDataColumn =
-        dataNodeColumn->append(dataColumnChunk, startPageIdx + numPagesFlushed, nodeGroupIdx);
-    return numPagesFlushed + numPagesForDataColumn;
+    dataNodeColumn->append(dataColumnChunk, nodeGroupIdx);
 }
 
 void VarListNodeColumn::scanUnfiltered(Transaction* transaction, node_group_idx_t nodeGroupIdx,
