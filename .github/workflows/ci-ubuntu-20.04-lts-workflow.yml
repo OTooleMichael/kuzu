@@ -12,9 +12,9 @@ jobs:
     # container:
     #   image: quay.io/pypa/manylinux2014_x86_64
     steps:
-      - uses: jlumbroso/free-disk-space@main
-        with:
-          tool-cache: true
+      # - uses: jlumbroso/free-disk-space@main
+      #   with:
+      #     tool-cache: true
 
       - run: cat /etc/os-release
 
@@ -24,12 +24,24 @@ jobs:
 
       - uses: docker://quay.io/pypa/manylinux2014_x86_64
         with:
-          args: ls
-
-      - uses: docker://quay.io/pypa/manylinux2014_x86_64
-        with:
           args: echo "asdf" > asdf
 
       - uses: docker://quay.io/pypa/manylinux2014_x86_64
         with:
-          args: ls
+          args: 'echo "asdf" > asdf'
+
+      - uses: docker://quay.io/pypa/manylinux2014_x86_64
+        with:
+          args: "echo \"asdf\" > asdf"
+
+      - uses: docker://quay.io/pypa/manylinux2014_x86_64
+        with:
+          args: ls -al
+
+      - uses: docker://quay.io/pypa/manylinux2014_x86_64
+        with:
+          args: 'ls -al'
+
+      - uses: docker://quay.io/pypa/manylinux2014_x86_64
+        with:
+          args: "ls -al"
