@@ -20,28 +20,16 @@ jobs:
 
       - uses: docker://quay.io/pypa/manylinux2014_x86_64
         with:
-          args: cat /etc/os-release
+          args: cat /etc/os-release > asdf; cat asdf
 
       - uses: docker://quay.io/pypa/manylinux2014_x86_64
         with:
-          args: echo "asdf" > asdf
+          args: 'cat /etc/os-release > asdf; cat asdf'
 
       - uses: docker://quay.io/pypa/manylinux2014_x86_64
         with:
-          args: 'echo "asdf" > asdf'
-
-      - uses: docker://quay.io/pypa/manylinux2014_x86_64
-        with:
-          args: "echo \"asdf\" > asdf"
+          args: "cat /etc/os-release > asdf; cat asdf"
 
       - uses: docker://quay.io/pypa/manylinux2014_x86_64
         with:
           args: ls -al
-
-      - uses: docker://quay.io/pypa/manylinux2014_x86_64
-        with:
-          args: 'ls -al'
-
-      - uses: docker://quay.io/pypa/manylinux2014_x86_64
-        with:
-          args: "ls -al"
