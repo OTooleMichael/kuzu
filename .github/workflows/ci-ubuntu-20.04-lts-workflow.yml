@@ -19,17 +19,16 @@ jobs:
       - run: cat /etc/os-release
 
       - uses: docker://quay.io/pypa/manylinux2014_x86_64
-        with:
-          args: cat /etc/os-release > asdf; cat asdf
-
-      - uses: docker://quay.io/pypa/manylinux2014_x86_64
+        continue-on-error: true
         with:
           args: 'cat /etc/os-release > asdf; cat asdf'
 
       - uses: docker://quay.io/pypa/manylinux2014_x86_64
+        continue-on-error: true
         with:
           args: "cat /etc/os-release > asdf; cat asdf"
 
       - uses: docker://quay.io/pypa/manylinux2014_x86_64
+        continue-on-error: true
         with:
           args: ls -al
