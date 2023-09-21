@@ -3,7 +3,7 @@
 #include <memory>
 #include <vector>
 
-#include "nodes_statistics_and_deleted_ids.h"
+#include "storage/stats/nodes_statistics_and_deleted_ids.h"
 #include "storage/store/node_table.h"
 
 namespace kuzu {
@@ -16,7 +16,7 @@ public:
 
     inline NodeColumn* getNodePropertyColumn(
         common::table_id_t tableID, uint64_t propertyIdx) const {
-        return nodeTables.at(tableID)->getPropertyColumn(propertyIdx);
+        return nodeTables.at(tableID)->getColumn(propertyIdx);
     }
     inline PrimaryKeyIndex* getPKIndex(common::table_id_t tableID) {
         return nodeTables[tableID]->getPKIndex();

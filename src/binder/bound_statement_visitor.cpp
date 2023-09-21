@@ -94,8 +94,11 @@ void BoundStatementVisitor::visitReadingClause(const BoundReadingClause& reading
     case ClauseType::UNWIND: {
         visitUnwind(readingClause);
     } break;
-    case ClauseType::InQueryCall: {
+    case ClauseType::IN_QUERY_CALL: {
         visitInQueryCall(readingClause);
+    } break;
+    case ClauseType::LOAD_FROM: {
+        visitLoadFrom(readingClause);
     } break;
     default:
         throw NotImplementedException("BoundStatementVisitor::visitReadingClause");

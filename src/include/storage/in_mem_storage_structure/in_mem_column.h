@@ -1,5 +1,6 @@
 #pragma once
 
+#include "storage/file_handle.h"
 #include "storage/in_mem_storage_structure/in_mem_column_chunk.h"
 
 namespace kuzu {
@@ -15,20 +16,21 @@ public:
     void flushChunk(InMemColumnChunk* chunk);
 
     std::unique_ptr<InMemColumnChunk> createInMemColumnChunk(common::offset_t startNodeOffset,
-        common::offset_t endNodeOffset, std::unique_ptr<common::CopyDescription> copyDescription) {
+        common::offset_t endNodeOffset, common::CSVReaderConfig* csvReaderConfig) {
+        auto csvReaderConfigCopy = csvReaderConfig ? csvReaderConfig->copy() : nullptr;
         switch (dataType.getPhysicalType()) {
         case common::PhysicalTypeID::STRING:
         case common::PhysicalTypeID::VAR_LIST: {
             return std::make_unique<InMemColumnChunkWithOverflow>(dataType, startNodeOffset,
-                endNodeOffset, std::move(copyDescription), inMemOverflowFile.get());
+                endNodeOffset, std::move(csvReaderConfigCopy), inMemOverflowFile.get());
         }
         case common::PhysicalTypeID::FIXED_LIST: {
             return std::make_unique<InMemFixedListColumnChunk>(
-                dataType, startNodeOffset, endNodeOffset, std::move(copyDescription));
+                dataType, startNodeOffset, endNodeOffset, std::move(csvReaderConfigCopy));
         }
         default: {
             return std::make_unique<InMemColumnChunk>(
-                dataType, startNodeOffset, endNodeOffset, std::move(copyDescription));
+                dataType, startNodeOffset, endNodeOffset, std::move(csvReaderConfigCopy));
         }
         }
     }

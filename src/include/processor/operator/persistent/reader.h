@@ -9,15 +9,16 @@ namespace processor {
 struct ReaderInfo {
     DataPos nodeOffsetPos;
     std::vector<DataPos> dataColumnsPos;
-    bool containsSerial;
 
-    ReaderInfo(
-        const DataPos& nodeOffsetPos, std::vector<DataPos> dataColumnsPos, bool containsSerial)
-        : nodeOffsetPos{nodeOffsetPos}, dataColumnsPos{std::move(dataColumnsPos)},
-          containsSerial{containsSerial} {}
+    common::TableType tableType;
+
+    ReaderInfo(const DataPos& nodeOffsetPos, std::vector<DataPos> dataColumnsPos,
+        common::TableType tableType)
+        : nodeOffsetPos{nodeOffsetPos}, dataColumnsPos{std::move(dataColumnsPos)}, tableType{
+                                                                                       tableType} {}
     ReaderInfo(const ReaderInfo& other)
-        : nodeOffsetPos{other.nodeOffsetPos}, dataColumnsPos{other.dataColumnsPos},
-          containsSerial{other.containsSerial} {}
+        : nodeOffsetPos{other.nodeOffsetPos},
+          dataColumnsPos{other.dataColumnsPos}, tableType{other.tableType} {}
 
     inline uint32_t getNumColumns() const { return dataColumnsPos.size(); }
 
@@ -30,13 +31,16 @@ public:
         uint32_t id, const std::string& paramsString)
         : PhysicalOperator{PhysicalOperatorType::READER, id, paramsString}, info{std::move(info)},
           sharedState{std::move(sharedState)}, dataChunk{nullptr},
-          nodeOffsetVector{nullptr}, readFunc{nullptr}, initFunc{nullptr}, readFuncData{nullptr} {}
+          offsetVector{nullptr}, readFunc{nullptr}, initFunc{nullptr}, readFuncData{nullptr} {}
+
+    inline bool isSource() const final { return true; }
+    inline bool canParallel() const final {
+        return sharedState->readerConfig->fileType != common::FileType::TURTLE;
+    }
 
     void initGlobalStateInternal(ExecutionContext* context) final;
 
     void initLocalStateInternal(ResultSet* resultSet, ExecutionContext* context) final;
-
-    inline bool isSource() const final { return true; }
 
     inline ReaderInfo* getReaderInfo() const { return info.get(); }
     inline ReaderSharedState* getSharedState() const { return sharedState.get(); }
@@ -44,12 +48,6 @@ public:
     inline std::unique_ptr<PhysicalOperator> clone() final {
         return make_unique<Reader>(info->copy(), sharedState, getOperatorID(), paramsString);
     }
-
-    inline bool isCopyTurtleFile() const {
-        return sharedState->copyDescription->fileType == common::CopyDescription::FileType::TURTLE;
-    }
-
-    inline bool getContainsSerial() const { return info->containsSerial; }
 
 protected:
     bool getNextTuplesInternal(ExecutionContext* context) final;
@@ -78,7 +76,7 @@ private:
     LeftArrowArrays leftArrowArrays;
 
     std::unique_ptr<common::DataChunk> dataChunk;
-    common::ValueVector* nodeOffsetVector;
+    common::ValueVector* offsetVector;
 
     read_rows_func_t readFunc;
     init_reader_data_func_t initFunc;

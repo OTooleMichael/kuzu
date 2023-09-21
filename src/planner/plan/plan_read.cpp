@@ -1,3 +1,4 @@
+#include "binder/query/reading_clause/bound_load_from.h"
 #include "binder/query/reading_clause/bound_match_clause.h"
 #include "planner/query_planner.h"
 
@@ -16,11 +17,16 @@ void QueryPlanner::planReadingClause(
     case ClauseType::UNWIND: {
         planUnwindClause(boundReadingClause, prevPlans);
     } break;
-    case ClauseType::InQueryCall: {
+    case ClauseType::IN_QUERY_CALL: {
         planInQueryCall(boundReadingClause, prevPlans);
     } break;
+    case ClauseType::LOAD_FROM: {
+        planLoadFrom(boundReadingClause, prevPlans);
+    } break;
     default:
+        // LCOV_EXCL_START
         throw NotImplementedException("QueryPlanner::planReadingClause");
+        // LCOV_EXCL_STOP
     }
 }
 
@@ -63,11 +69,25 @@ void QueryPlanner::planInQueryCall(
     BoundReadingClause* boundReadingClause, std::vector<std::unique_ptr<LogicalPlan>>& plans) {
     for (auto& plan : plans) {
         if (!plan->isEmpty()) {
-            auto inQueryCallPlan = std::make_shared<LogicalPlan>();
-            appendInQueryCall(*boundReadingClause, *inQueryCallPlan);
-            appendCrossProduct(AccumulateType::REGULAR, *plan, *inQueryCallPlan);
+            auto tmpPlan = std::make_unique<LogicalPlan>();
+            appendInQueryCall(*boundReadingClause, *tmpPlan);
+            appendCrossProduct(AccumulateType::REGULAR, *plan, *tmpPlan);
         } else {
             appendInQueryCall(*boundReadingClause, *plan);
+        }
+    }
+}
+
+void QueryPlanner::planLoadFrom(
+    binder::BoundReadingClause* readingClause, std::vector<std::unique_ptr<LogicalPlan>>& plans) {
+    auto loadFrom = reinterpret_cast<BoundLoadFrom*>(readingClause);
+    for (auto& plan : plans) {
+        if (!plan->isEmpty()) {
+            auto tmpPlan = std::make_unique<LogicalPlan>();
+            appendScanFile(loadFrom->getInfo(), *tmpPlan);
+            appendCrossProduct(AccumulateType::REGULAR, *plan, *tmpPlan);
+        } else {
+            appendScanFile(loadFrom->getInfo(), *plan);
         }
     }
 }

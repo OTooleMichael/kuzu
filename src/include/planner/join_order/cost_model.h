@@ -1,4 +1,6 @@
-#include "planner/logical_plan/logical_plan.h"
+#pragma once
+
+#include "planner/operator/logical_plan.h"
 
 namespace kuzu {
 namespace planner {

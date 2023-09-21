@@ -90,6 +90,18 @@ py::object PyQueryResult::convertValueToPyObject(const Value& value) {
     case LogicalTypeID::SERIAL: {
         return py::cast(value.getValue<int64_t>());
     }
+    case LogicalTypeID::UINT8: {
+        return py::cast(value.getValue<uint8_t>());
+    }
+    case LogicalTypeID::UINT16: {
+        return py::cast(value.getValue<uint16_t>());
+    }
+    case LogicalTypeID::UINT32: {
+        return py::cast(value.getValue<uint32_t>());
+    }
+    case LogicalTypeID::UINT64: {
+        return py::cast(value.getValue<uint64_t>());
+    }
     case LogicalTypeID::FLOAT: {
         return py::cast(value.getValue<float>());
     }
@@ -169,6 +181,7 @@ py::object PyQueryResult::convertValueToPyObject(const Value& value) {
         py::dict dict;
         dict["_src"] = convertNodeIdToPyDict(RelVal::getSrcNodeID(&value));
         dict["_dst"] = convertNodeIdToPyDict(RelVal::getDstNodeID(&value));
+        dict["_label"] = py::cast(RelVal::getLabelName(&value));
         auto numProperties = RelVal::getNumProperties(&value);
         for (auto i = 0u; i < numProperties; ++i) {
             auto key = py::str(RelVal::getPropertyName(&value, i));
@@ -191,7 +204,7 @@ py::object PyQueryResult::getAsDF() {
 }
 
 bool PyQueryResult::getNextArrowChunk(
-    const ArrowSchema& schema, py::list& batches, std::int64_t chunkSize) {
+    const std::vector<std::unique_ptr<DataTypeInfo>>& typesInfo, py::list& batches, std::int64_t chunkSize) {
     if (!queryResult->hasNext()) {
         return false;
     }
@@ -200,14 +213,16 @@ bool PyQueryResult::getNextArrowChunk(
 
     auto pyarrowLibModule = py::module::import("pyarrow").attr("lib");
     auto batchImportFunc = pyarrowLibModule.attr("RecordBatch").attr("_import_from_c");
-    batches.append(batchImportFunc((std::uint64_t)&data, (std::uint64_t)&schema));
+    auto schema = ArrowConverter::toArrowSchema(typesInfo);
+    batches.append(batchImportFunc((std::uint64_t)&data, (std::uint64_t)schema.get()));
     return true;
 }
 
-py::object PyQueryResult::getArrowChunks(const ArrowSchema& schema, std::int64_t chunkSize) {
+py::object PyQueryResult::getArrowChunks(
+    const std::vector<std::unique_ptr<DataTypeInfo>>& typesInfo, std::int64_t chunkSize) {
     auto pyarrowLibModule = py::module::import("pyarrow").attr("lib");
     py::list batches;
-    while (getNextArrowChunk(schema, batches, chunkSize)) {}
+    while (getNextArrowChunk(typesInfo, batches, chunkSize)) {}
     return std::move(batches);
 }
 
@@ -219,16 +234,9 @@ kuzu::pyarrow::Table PyQueryResult::getAsArrow(std::int64_t chunkSize) {
     auto schemaImportFunc = pyarrowLibModule.attr("Schema").attr("_import_from_c");
 
     auto typesInfo = queryResult->getColumnTypesInfo();
+    py::list batches = getArrowChunks(typesInfo, chunkSize);
     auto schema = ArrowConverter::toArrowSchema(typesInfo);
-    // Prevent arrow from releasing the schema until it gets passed to the table
-    // It seems like you are expected to pass a new schema for each RecordBatch
-    auto release = schema->release;
-    schema->release = [](ArrowSchema*) {};
-
-    py::list batches = getArrowChunks(*schema, chunkSize);
     auto schemaObj = schemaImportFunc((std::uint64_t)schema.get());
-
-    schema->release = release;
     return py::cast<kuzu::pyarrow::Table>(fromBatchesFunc(batches, schemaObj));
 }
 

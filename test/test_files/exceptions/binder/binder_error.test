@@ -103,6 +103,10 @@ Binder exception: Cannot match a built-in function for given function +(INTERNAL
 (INT32,INT32) -> INT32
 (INT16,INT16) -> INT16
 (INT8,INT8) -> INT8
+(UINT64,UINT64) -> UINT64
+(UINT32,UINT32) -> UINT32
+(UINT16,UINT16) -> UINT16
+(UINT8,UINT8) -> UINT8
 (DOUBLE,DOUBLE) -> DOUBLE
 (FLOAT,FLOAT) -> FLOAT
 (SERIAL,SERIAL) -> SERIAL
@@ -122,6 +126,10 @@ Binder exception: Cannot match a built-in function for given function +(DATE,DAT
 (INT32,INT32) -> INT32
 (INT16,INT16) -> INT16
 (INT8,INT8) -> INT8
+(UINT64,UINT64) -> UINT64
+(UINT32,UINT32) -> UINT32
+(UINT16,UINT16) -> UINT16
+(UINT8,UINT8) -> UINT8
 (DOUBLE,DOUBLE) -> DOUBLE
 (FLOAT,FLOAT) -> FLOAT
 (SERIAL,SERIAL) -> SERIAL
@@ -141,6 +149,10 @@ Binder exception: Cannot match a built-in function for given function +(TIMESTAM
 (INT32,INT32) -> INT32
 (INT16,INT16) -> INT16
 (INT8,INT8) -> INT8
+(UINT64,UINT64) -> UINT64
+(UINT32,UINT32) -> UINT32
+(UINT16,UINT16) -> UINT16
+(UINT8,UINT8) -> UINT8
 (DOUBLE,DOUBLE) -> DOUBLE
 (FLOAT,FLOAT) -> FLOAT
 (SERIAL,SERIAL) -> SERIAL
@@ -160,6 +172,10 @@ Binder exception: Cannot match a built-in function for given function +(TIMESTAM
 (INT32,INT32) -> INT32
 (INT16,INT16) -> INT16
 (INT8,INT8) -> INT8
+(UINT64,UINT64) -> UINT64
+(UINT32,UINT32) -> UINT32
+(UINT16,UINT16) -> UINT16
+(UINT8,UINT8) -> UINT8
 (DOUBLE,DOUBLE) -> DOUBLE
 (FLOAT,FLOAT) -> FLOAT
 (SERIAL,SERIAL) -> SERIAL
@@ -212,11 +228,6 @@ Binder exception: p1.age has data type INT64. (STRING) was expected.
 -STATEMENT MATCH (p:person) RETURN p.age UNION ALL MATCH (p1:person) RETURN p1.age UNION MATCH (p1:person) RETURN p1.age
 ---- error
 Binder exception: Union and union all can't be used together.
-
--LOG VarLenExtendZeroLowerBound
--STATEMENT MATCH (a:person)-[:knows*0..5]->(b:person) return count(*)
----- error
-Binder exception: Lower and upper bound of a rel must be greater than 0.
 
 -LOG ReadAfterUpdate
 -STATEMENT MATCH (a:person) SET a.age = 35 WITH a MATCH (a)-[:knows]->(b:person) RETURN a.age
@@ -340,6 +351,14 @@ DISTINCT (INT16) -> INT16
 (INT16) -> INT16
 DISTINCT (INT8) -> INT8
 (INT8) -> INT8
+DISTINCT (UINT64) -> UINT64
+(UINT64) -> UINT64
+DISTINCT (UINT32) -> UINT32
+(UINT32) -> UINT32
+DISTINCT (UINT16) -> UINT16
+(UINT16) -> UINT16
+DISTINCT (UINT8) -> UINT8
+(UINT8) -> UINT8
 DISTINCT (DOUBLE) -> DOUBLE
 (DOUBLE) -> DOUBLE
 DISTINCT (FLOAT) -> FLOAT
@@ -446,6 +465,10 @@ Binder exception: Cannot match a built-in function for given function +(INT64,ST
 (INT32,INT32) -> INT32
 (INT16,INT16) -> INT16
 (INT8,INT8) -> INT8
+(UINT64,UINT64) -> UINT64
+(UINT32,UINT32) -> UINT32
+(UINT16,UINT16) -> UINT16
+(UINT8,UINT8) -> UINT8
 (DOUBLE,DOUBLE) -> DOUBLE
 (FLOAT,FLOAT) -> FLOAT
 (SERIAL,SERIAL) -> SERIAL
@@ -489,4 +512,4 @@ Binder exception: Invalid number of arguments for macro ADD4.
 -CASE CopyToNPYFormat
 -STATEMENT COPY (MATCH (a:person) RETURN a) TO 'person.npy';
 ---- error
-Binder exception: COPY TO currently only supports csv files.
+Binder exception: COPY TO currently only supports csv and parquet files.

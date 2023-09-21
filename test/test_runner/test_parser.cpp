@@ -132,7 +132,8 @@ std::string TestParser::extractTextBeforeNextStatement(bool ignoreLineBreak) {
     return extractedText;
 }
 
-TestStatement* TestParser::extractStatement(TestStatement* statement) {
+TestStatement* TestParser::extractStatement(
+    TestStatement* statement, const std::string& testCaseName) {
     if (endOfFile()) {
         return statement;
     }
@@ -143,11 +144,33 @@ TestStatement* TestParser::extractStatement(TestStatement* statement) {
         statement->logMessage = paramsToString(1);
         break;
     }
+    case TokenType::CHECKPOINT_WAIT_TIMEOUT: {
+        checkMinimumParams(1);
+        testGroup->checkpointWaitTimeout = stoi(currentToken.params[1]);
+        break;
+    }
+    case TokenType::CREATE_CONNECTION: {
+        checkMinimumParams(1);
+        testGroup->testCasesConnNames[testCaseName].insert(currentToken.params[1]);
+        break;
+    }
+    case TokenType::RELOADDB: {
+        statement->reloadDBFlag = true;
+        return statement;
+    }
     case TokenType::STATEMENT: {
         std::string query = paramsToString(1);
+        extractConnName(query, statement);
         query += extractTextBeforeNextStatement(true);
         replaceVariables(query);
         statement->query = query;
+        break;
+    }
+    case TokenType::BATCH_STATEMENTS: {
+        std::string query = paramsToString(1);
+        extractConnName(query, statement);
+        statement->batchStatmentsCSVFile = TestHelper::appendKuzuRootPath(
+            FileUtils::joinPath(TestHelper::TEST_STATEMENTS_PATH, query.substr(7)));
         break;
     }
     case TokenType::RESULT: {
@@ -179,7 +202,7 @@ TestStatement* TestParser::extractStatement(TestStatement* statement) {
     }
     }
     nextLine();
-    return extractStatement(statement);
+    return extractStatement(statement, testCaseName);
 }
 
 void TestParser::extractStatementBlock() {
@@ -190,8 +213,9 @@ void TestParser::extractStatementBlock() {
             break;
         } else {
             auto statement = std::make_unique<TestStatement>();
-            extractStatement(statement.get());
+            extractStatement(statement.get(), blockName);
             testGroup->testCasesStatementBlocks[blockName].push_back(std::move(statement));
+            testGroup->testCasesConnNames[blockName] = std::set<std::string>();
         }
     }
 }
@@ -277,7 +301,7 @@ void TestParser::parseBody() {
         default: {
             // if its not a special case, then it has to be a statement
             TestStatement* statement = addNewStatement(testCaseName);
-            extractStatement(statement);
+            extractStatement(statement, testCaseName);
         }
         }
     }
@@ -289,6 +313,7 @@ void TestParser::addStatementBlock(const std::string& blockName, const std::stri
         for (const auto& statementPtr : testGroup->testCasesStatementBlocks[blockName]) {
             testGroup->testCases[testCaseName].push_back(
                 std::make_unique<TestStatement>(*statementPtr));
+            testGroup->testCasesConnNames[testCaseName] = testGroup->testCasesConnNames[blockName];
         }
     } else {
         throw TestException("Statement block not found [" + path + ":" + blockName + "].");
@@ -299,6 +324,7 @@ TestStatement* TestParser::addNewStatement(std::string& testGroupName) {
     auto statement = std::make_unique<TestStatement>();
     TestStatement* currentStatement = statement.get();
     testGroup->testCases[testGroupName].push_back(std::move(statement));
+    // testGroup->testCasesConnNames[testGroupName]=std::set<std::string>();
     return currentStatement;
 }
 
@@ -324,6 +350,22 @@ void TestParser::tokenize() {
         currentToken.type = TokenType::EMPTY;
     } else {
         currentToken.type = getTokenType(currentToken.params[0]);
+    }
+}
+
+void TestParser::extractConnName(std::string& query, TestStatement* statement) {
+    std::regex pattern(R"(\[(conn.*?)\]\s*(.*))");
+    std::smatch matches;
+    bool statement_status = false;
+    if (std::regex_search(query, matches, pattern)) {
+        if (matches.size() == 3) {
+            statement_status = true;
+            statement->connName = matches[1];
+            query = matches[2];
+        }
+    }
+    if (!statement_status) {
+        statement->connName = TestHelper::DEFAULT_CONN_NAME;
     }
 }
 

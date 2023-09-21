@@ -1,5 +1,7 @@
-#include "node_column.h"
-#include "storage/store/table_statistics.h"
+#pragma once
+
+#include "storage/stats/table_statistics.h"
+#include "storage/store/node_column.h"
 
 namespace kuzu {
 namespace storage {

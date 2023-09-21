@@ -16,9 +16,9 @@ public:
     TableSchema(std::string tableName, common::table_id_t tableID, common::TableType tableType,
         std::vector<std::unique_ptr<Property>> properties)
         : tableName{std::move(tableName)}, tableID{tableID}, tableType{tableType},
-          properties{std::move(properties)},
-          nextPropertyID{(common::property_id_t)this->properties.size()}, comment{
-                                                                              std::move(comment)} {}
+          properties{std::move(properties)}, nextPropertyID{(
+                                                 common::property_id_t)this->properties.size()},
+          comment{"" /* empty comment */} {}
     TableSchema(common::TableType tableType, std::string tableName, common::table_id_t tableID,
         std::vector<std::unique_ptr<Property>> properties, std::string comment,
         common::property_id_t nextPropertyID)
@@ -29,6 +29,8 @@ public:
     virtual ~TableSchema() = default;
 
     static bool isReservedPropertyName(const std::string& propertyName);
+
+    inline common::table_id_t getTableID() const { return tableID; }
 
     inline uint32_t getNumProperties() const { return properties.size(); }
 
@@ -64,6 +66,7 @@ public:
     std::string getPropertyName(common::property_id_t propertyID) const;
 
     common::property_id_t getPropertyID(const std::string& propertyName) const;
+    common::column_id_t getColumnID(common::property_id_t propertyID) const;
 
     Property* getProperty(common::property_id_t propertyID) const;
 

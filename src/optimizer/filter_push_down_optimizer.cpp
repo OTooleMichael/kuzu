@@ -3,11 +3,12 @@
 #include "binder/expression/literal_expression.h"
 #include "binder/expression/property_expression.h"
 #include "binder/expression_visitor.h"
-#include "planner/logical_plan/logical_filter.h"
-#include "planner/logical_plan/logical_hash_join.h"
-#include "planner/logical_plan/scan/logical_dummy_scan.h"
-#include "planner/logical_plan/scan/logical_scan_node.h"
-#include "planner/logical_plan/scan/logical_scan_node_property.h"
+#include "planner/operator/logical_filter.h"
+#include "planner/operator/logical_hash_join.h"
+#include "planner/operator/scan/logical_dummy_scan.h"
+#include "planner/operator/scan/logical_index_scan.h"
+#include "planner/operator/scan/logical_scan_node.h"
+#include "planner/operator/scan/logical_scan_node_property.h"
 
 using namespace kuzu::binder;
 using namespace kuzu::common;
@@ -94,8 +95,11 @@ std::shared_ptr<planner::LogicalOperator> FilterPushDownOptimizer::visitScanNode
             // Rewrite to index scan
             auto expressionsScan = std::make_shared<LogicalDummyScan>();
             expressionsScan->computeFlatSchema();
-            auto indexScan =
-                std::make_shared<LogicalIndexScanNode>(node, rhs, std::move(expressionsScan));
+            std::vector<std::unique_ptr<LogicalIndexScanNodeInfo>> infos;
+            infos.push_back(std::make_unique<LogicalIndexScanNodeInfo>(node->getSingleTableID(),
+                node->getInternalIDProperty(), rhs, rhs->getDataType().copy()));
+            auto indexScan = std::make_shared<LogicalIndexScanNode>(
+                std::move(infos), std::move(expressionsScan));
             indexScan->computeFlatSchema();
             op->setChild(0, std::move(indexScan));
         } else {

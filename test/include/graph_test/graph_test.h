@@ -6,7 +6,7 @@
 #include "gtest/gtest.h"
 #include "main/kuzu.h"
 #include "parser/parser.h"
-#include "planner/logical_plan/logical_plan_util.h"
+#include "planner/operator/logical_plan_util.h"
 #include "planner/planner.h"
 #include "test_helper/test_helper.h"
 #include "test_runner/test_runner.h"
@@ -38,6 +38,10 @@ public:
     void TearDown() override { common::FileUtils::removeDir(databasePath); }
 
     void createDBAndConn();
+
+    // multiple conns test
+    void createDB(uint64_t checkpointWaitTimeout);
+    void createConns(const std::set<std::string>& connNames);
 
     void initGraph();
 
@@ -140,7 +144,10 @@ public:
     std::string databasePath;
     std::unique_ptr<main::SystemConfig> systemConfig;
     std::unique_ptr<main::Database> database;
+    // for normal conn; if it is null, respresents multiple conns, need to use connMap
     std::unique_ptr<main::Connection> conn;
+    // for multiple conns
+    std::unordered_map<std::string, std::unique_ptr<main::Connection>> connMap;
 };
 
 // This class starts database without initializing graph.
@@ -157,10 +164,31 @@ public:
         initGraph();
     }
 
-    inline void runTest(const std::vector<std::unique_ptr<TestStatement>>& statements) {
-        TestRunner::runTest(statements, *conn, databasePath);
+    inline void runTest(const std::vector<std::unique_ptr<TestStatement>>& statements,
+        uint64_t checkpointWaitTimeout =
+            common::DEFAULT_CHECKPOINT_WAIT_TIMEOUT_FOR_TRANSACTIONS_TO_LEAVE_IN_MICROS,
+        std::set<std::string> connNames = std::set<std::string>()) {
+        for (auto& statement : statements) {
+            if (statement->reloadDBFlag) {
+                createDB(checkpointWaitTimeout);
+                createConns(connNames);
+                continue;
+            }
+            if (conn) {
+                TestRunner::runTest(statement.get(), *conn, databasePath);
+            } else {
+                auto connName = *statement->connName;
+                CheckConn(connName);
+                TestRunner::runTest(statement.get(), *connMap[connName], databasePath);
+            }
+        }
+    }
+
+    inline void CheckConn(std::string connName) {
+        if (connMap[connName] == nullptr) {
+            connMap[connName] = std::make_unique<main::Connection>(database.get());
+        }
     }
 };
-
 } // namespace testing
 } // namespace kuzu

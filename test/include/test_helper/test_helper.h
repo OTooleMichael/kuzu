@@ -5,7 +5,7 @@
 #include "common/file_utils.h"
 #include "main/kuzu.h"
 #include "parser/parser.h"
-#include "planner/logical_plan/logical_plan_util.h"
+#include "planner/operator/logical_plan_util.h"
 #include "planner/planner.h"
 
 using namespace kuzu::main;
@@ -32,6 +32,8 @@ public:
     static constexpr char PARQUET_TEMP_DATASET_PATH[] = "dataset/parquet_temp_";
     static constexpr char TMP_TEST_DIR[] = "test/unittest_temp_";
     static constexpr char TEST_ANSWERS_PATH[] = "test/answers";
+    static constexpr char TEST_STATEMENTS_PATH[] = "test/statements";
+    static constexpr char DEFAULT_CONN_NAME[] = "conn_default";
 
     static std::vector<std::unique_ptr<TestQueryConfig>> parseTestFile(
         const std::string& path, bool checkOutputOrder = false);

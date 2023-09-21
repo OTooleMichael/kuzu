@@ -1,7 +1,7 @@
 #include "common/file_utils.h"
 #include "gtest/gtest.h"
 #include "parser/parser.h"
-#include "planner/logical_plan/logical_plan_util.h"
+#include "planner/operator/logical_plan_util.h"
 #include "planner/planner.h"
 #include "test_runner/test_group.h"
 
@@ -10,8 +10,8 @@ namespace testing {
 
 class TestRunner {
 public:
-    static void runTest(const std::vector<std::unique_ptr<TestStatement>>& statements,
-        main::Connection& conn, std::string& databasePath);
+    static void runTest(
+        TestStatement* statement, main::Connection& conn, std::string& databasePath);
 
     static std::unique_ptr<planner::LogicalPlan> getLogicalPlan(
         const std::string& query, main::Connection& conn);

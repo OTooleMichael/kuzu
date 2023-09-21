@@ -13,14 +13,14 @@ namespace kuzu {
 namespace storage {
 
 InMemColumnChunk::InMemColumnChunk(LogicalType dataType, offset_t startNodeOffset,
-    offset_t endNodeOffset, std::unique_ptr<CopyDescription> copyDescription, bool requireNullBits)
-    : dataType{std::move(dataType)}, startNodeOffset{startNodeOffset}, copyDescription{std::move(
-                                                                           copyDescription)} {
+    offset_t endNodeOffset, std::unique_ptr<CSVReaderConfig> csvReaderConfig, bool requireNullBits)
+    : dataType{std::move(dataType)}, startNodeOffset{startNodeOffset}, csvReaderConfig{std::move(
+                                                                           csvReaderConfig)} {
     numBytesPerValue = getDataTypeSizeInColumn(this->dataType);
     numBytes = numBytesPerValue * (endNodeOffset - startNodeOffset + 1);
     buffer = std::make_unique<uint8_t[]>(numBytes);
     if (requireNullBits) {
-        auto copyDescCloned = this->copyDescription ? this->copyDescription->copy() : nullptr;
+        auto copyDescCloned = this->csvReaderConfig ? this->csvReaderConfig->copy() : nullptr;
         nullChunk = std::make_unique<InMemColumnChunk>(LogicalType{LogicalTypeID::BOOL},
             startNodeOffset, endNodeOffset, std::move(copyDescCloned), false /* hasNull */);
         memset(nullChunk->getData(), true, nullChunk->getNumBytes());
@@ -125,6 +125,18 @@ void InMemColumnChunk::copyArrowArray(
     } break;
     case arrow::Type::INT64: {
         templateCopyValuesToPage<int64_t>(arrowArray, nodeOffsets);
+    } break;
+    case arrow::Type::UINT8: {
+        templateCopyValuesToPage<uint8_t>(arrowArray, nodeOffsets);
+    } break;
+    case arrow::Type::UINT16: {
+        templateCopyValuesToPage<uint16_t>(arrowArray, nodeOffsets);
+    } break;
+    case arrow::Type::UINT32: {
+        templateCopyValuesToPage<uint32_t>(arrowArray, nodeOffsets);
+    } break;
+    case arrow::Type::UINT64: {
+        templateCopyValuesToPage<uint64_t>(arrowArray, nodeOffsets);
     } break;
     case arrow::Type::DOUBLE: {
         templateCopyValuesToPage<double_t>(arrowArray, nodeOffsets);
@@ -369,16 +381,16 @@ void InMemColumnChunkWithOverflow::setValWithOverflow<blob_t>(
 template<>
 void InMemColumnChunkWithOverflow::setValWithOverflow<ku_list_t>(
     PageByteCursor& overflowCursor, const char* value, uint64_t length, uint64_t pos) {
-    auto varListVal = TableCopyUtils::getVarListValue(
-        value, 1, length - 2, dataType, *copyDescription->csvReaderConfig);
+    auto varListVal =
+        TableCopyUtils::getVarListValue(value, 1, length - 2, dataType, *csvReaderConfig);
     auto val = inMemOverflowFile->copyList(*varListVal, overflowCursor);
     setValue(val, pos);
 }
 
 InMemFixedListColumnChunk::InMemFixedListColumnChunk(LogicalType dataType, offset_t startNodeOffset,
-    offset_t endNodeOffset, std::unique_ptr<CopyDescription> copyDescription)
+    offset_t endNodeOffset, std::unique_ptr<CSVReaderConfig> csvReaderConfig)
     : InMemColumnChunk{
-          std::move(dataType), startNodeOffset, endNodeOffset, std::move(copyDescription)} {
+          std::move(dataType), startNodeOffset, endNodeOffset, std::move(csvReaderConfig)} {
     numElementsInAPage = PageUtils::getNumElementsInAPage(numBytesPerValue, false /* hasNull */);
     auto startNodeOffsetCursor =
         PageUtils::getPageByteCursorForPos(startNodeOffset, numElementsInAPage, numBytesPerValue);
@@ -426,8 +438,8 @@ void InMemColumnChunk::setValueFromString<bool>(const char* value, uint64_t leng
 template<>
 void InMemColumnChunk::setValueFromString<uint8_t*>(
     const char* value, uint64_t length, uint64_t pos) {
-    auto fixedListVal = TableCopyUtils::getArrowFixedList(
-        value, 1, length - 2, dataType, *copyDescription->csvReaderConfig);
+    auto fixedListVal =
+        TableCopyUtils::getArrowFixedList(value, 1, length - 2, dataType, *csvReaderConfig);
     // TODO(Guodong): Keep value size as a class field.
     memcpy(buffer.get() + pos * storage::StorageUtils::getDataTypeSize(dataType),
         fixedListVal.get(), storage::StorageUtils::getDataTypeSize(dataType));

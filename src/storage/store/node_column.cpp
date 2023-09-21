@@ -1,10 +1,9 @@
 #include "storage/store/node_column.h"
 
+#include "storage/stats/property_statistics.h"
 #include "storage/storage_structure/storage_structure.h"
-#include "storage/store/property_statistics.h"
 #include "storage/store/string_node_column.h"
 #include "storage/store/struct_node_column.h"
-#include "storage/store/table_statistics.h"
 #include "storage/store/var_list_node_column.h"
 #include "transaction/transaction.h"
 
@@ -553,6 +552,10 @@ std::unique_ptr<NodeColumn> NodeColumnFactory::createNodeColumn(const LogicalTyp
     case LogicalTypeID::INT32:
     case LogicalTypeID::INT16:
     case LogicalTypeID::INT8:
+    case LogicalTypeID::UINT64:
+    case LogicalTypeID::UINT32:
+    case LogicalTypeID::UINT16:
+    case LogicalTypeID::UINT8:
     case LogicalTypeID::DOUBLE:
     case LogicalTypeID::FLOAT:
     case LogicalTypeID::DATE:

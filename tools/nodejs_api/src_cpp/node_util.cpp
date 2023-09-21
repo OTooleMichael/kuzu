@@ -1,11 +1,11 @@
 #include "include/node_util.h"
 
 #include "common/exception/exception.h"
-#include "common/types/value/value.h"
 #include "common/types/value/nested.h"
 #include "common/types/value/node.h"
 #include "common/types/value/recursive_rel.h"
 #include "common/types/value/rel.h"
+#include "common/types/value/value.h"
 
 Napi::Value Util::ConvertToNapiObject(const Value& value, Napi::Env env) {
     if (value.isNull()) {
@@ -16,6 +16,18 @@ Napi::Value Util::ConvertToNapiObject(const Value& value, Napi::Env env) {
     switch (dataTypeID) {
     case LogicalTypeID::BOOL: {
         return Napi::Boolean::New(env, value.getValue<bool>());
+    }
+    case LogicalTypeID::UINT8: {
+        return Napi::Number::New(env, value.getValue<uint8_t>());
+    }
+    case LogicalTypeID::UINT16: {
+        return Napi::Number::New(env, value.getValue<uint16_t>());
+    }
+    case LogicalTypeID::UINT32: {
+        return Napi::Number::New(env, value.getValue<uint32_t>());
+    }
+    case LogicalTypeID::UINT64: {
+        return Napi::Number::New(env, value.getValue<uint64_t>());
     }
     case LogicalTypeID::INT8: {
         return Napi::Number::New(env, value.getValue<int8_t>());
@@ -119,6 +131,7 @@ Napi::Value Util::ConvertToNapiObject(const Value& value, Napi::Env env) {
         }
         napiObj.Set("_src", ConvertNodeIdToNapiObject(RelVal::getSrcNodeID(&value), env));
         napiObj.Set("_dst", ConvertNodeIdToNapiObject(RelVal::getDstNodeID(&value), env));
+        napiObj.Set("_label", Napi::String::New(env, RelVal::getLabelName(&value)));
         return napiObj;
     }
     case LogicalTypeID::INTERNAL_ID: {

@@ -87,6 +87,14 @@ uint32_t BuiltInVectorFunctions::getCastCost(
             return castInt16(targetTypeID);
         case LogicalTypeID::INT8:
             return castInt8(targetTypeID);
+        case LogicalTypeID::UINT64:
+            return castUInt64(targetTypeID);
+        case LogicalTypeID::UINT32:
+            return castUInt32(targetTypeID);
+        case LogicalTypeID::UINT16:
+            return castUInt16(targetTypeID);
+        case LogicalTypeID::UINT8:
+            return castUInt8(targetTypeID);
         case LogicalTypeID::DOUBLE:
             return castDouble(targetTypeID);
         case LogicalTypeID::FLOAT:
@@ -103,7 +111,10 @@ uint32_t BuiltInVectorFunctions::getCastCost(
 
 uint32_t BuiltInVectorFunctions::getTargetTypeCost(LogicalTypeID typeID) {
     switch (typeID) {
-    case LogicalTypeID::INT16: {
+    case LogicalTypeID::INT16:
+    case LogicalTypeID::UINT64:
+    case LogicalTypeID::UINT32:
+    case LogicalTypeID::UINT16: {
         return 110;
     }
     case LogicalTypeID::INT32: {
@@ -165,6 +176,58 @@ uint32_t BuiltInVectorFunctions::castInt8(LogicalTypeID targetTypeID) {
     case LogicalTypeID::INT16:
     case LogicalTypeID::INT32:
     case LogicalTypeID::INT64:
+    case LogicalTypeID::FLOAT:
+    case LogicalTypeID::DOUBLE:
+        return getTargetTypeCost(targetTypeID);
+    default:
+        return UNDEFINED_CAST_COST;
+    }
+}
+
+uint32_t BuiltInVectorFunctions::castUInt64(LogicalTypeID targetTypeID) {
+    switch (targetTypeID) {
+    case LogicalTypeID::FLOAT:
+    case LogicalTypeID::DOUBLE:
+        return getTargetTypeCost(targetTypeID);
+    default:
+        return UNDEFINED_CAST_COST;
+    }
+}
+
+uint32_t BuiltInVectorFunctions::castUInt32(LogicalTypeID targetTypeID) {
+    switch (targetTypeID) {
+    case LogicalTypeID::INT64:
+    case LogicalTypeID::UINT64:
+    case LogicalTypeID::FLOAT:
+    case LogicalTypeID::DOUBLE:
+        return getTargetTypeCost(targetTypeID);
+    default:
+        return UNDEFINED_CAST_COST;
+    }
+}
+
+uint32_t BuiltInVectorFunctions::castUInt16(LogicalTypeID targetTypeID) {
+    switch (targetTypeID) {
+    case LogicalTypeID::INT32:
+    case LogicalTypeID::INT64:
+    case LogicalTypeID::UINT32:
+    case LogicalTypeID::UINT64:
+    case LogicalTypeID::FLOAT:
+    case LogicalTypeID::DOUBLE:
+        return getTargetTypeCost(targetTypeID);
+    default:
+        return UNDEFINED_CAST_COST;
+    }
+}
+
+uint32_t BuiltInVectorFunctions::castUInt8(LogicalTypeID targetTypeID) {
+    switch (targetTypeID) {
+    case LogicalTypeID::INT16:
+    case LogicalTypeID::INT32:
+    case LogicalTypeID::INT64:
+    case LogicalTypeID::UINT16:
+    case LogicalTypeID::UINT32:
+    case LogicalTypeID::UINT64:
     case LogicalTypeID::FLOAT:
     case LogicalTypeID::DOUBLE:
         return getTargetTypeCost(targetTypeID);
@@ -431,10 +494,18 @@ void BuiltInVectorFunctions::registerCastFunctions() {
     vectorFunctions.insert({CAST_TO_INT32_FUNC_NAME, CastToInt32VectorFunction::getDefinitions()});
     vectorFunctions.insert({CAST_TO_INT16_FUNC_NAME, CastToInt16VectorFunction::getDefinitions()});
     vectorFunctions.insert({CAST_TO_INT8_FUNC_NAME, CastToInt8VectorFunction::getDefinitions()});
+    vectorFunctions.insert(
+        {CAST_TO_UINT64_FUNC_NAME, CastToUInt64VectorFunction::getDefinitions()});
+    vectorFunctions.insert(
+        {CAST_TO_UINT32_FUNC_NAME, CastToUInt32VectorFunction::getDefinitions()});
+    vectorFunctions.insert(
+        {CAST_TO_UINT16_FUNC_NAME, CastToUInt16VectorFunction::getDefinitions()});
+    vectorFunctions.insert({CAST_TO_UINT8_FUNC_NAME, CastToUInt8VectorFunction::getDefinitions()});
 }
 
 void BuiltInVectorFunctions::registerListFunctions() {
     vectorFunctions.insert({LIST_CREATION_FUNC_NAME, ListCreationVectorFunction::getDefinitions()});
+    vectorFunctions.insert({LIST_RANGE_FUNC_NAME, ListRangeVectorFunction::getDefinitions()});
     vectorFunctions.insert({LIST_LEN_FUNC_NAME, ListLenVectorFunction::getDefinitions()});
     vectorFunctions.insert({LIST_EXTRACT_FUNC_NAME, ListExtractVectorFunction::getDefinitions()});
     vectorFunctions.insert({LIST_ELEMENT_FUNC_NAME, ListExtractVectorFunction::getDefinitions()});

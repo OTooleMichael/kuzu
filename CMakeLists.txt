@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.11)
 
-project(Kuzu VERSION 0.0.8.7 LANGUAGES CXX)
+project(Kuzu VERSION 0.0.8.9 LANGUAGES CXX)
 
 find_package(Threads REQUIRED)
 
@@ -83,6 +83,11 @@ if(MSVC)
     add_compile_definitions(_AMD64_)
     # Non-english windows system may use other encodings other than utf-8 (e.g. Chinese use GBK).
     add_compile_options("/utf-8")
+    # Enables support for custom hardware exception handling
+    add_compile_options("/EHa")
+    # Remove the default to avoid warnings
+    STRING(REPLACE "/EHsc" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+    STRING(REPLACE "/EHs" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
 endif()
 if(CMAKE_BUILD_TYPE MATCHES Release)
     if(MSVC)

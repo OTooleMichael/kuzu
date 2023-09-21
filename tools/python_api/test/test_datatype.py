@@ -141,6 +141,7 @@ def test_rel(establish_connection):
     assert (r['year'] == 2010)
     assert (r['_src'] == p['_id'])
     assert (r['_dst'] == o['_id'])
+    assert (r['_label'] == 'workAt')
     assert not result.has_next()
     result.close()
 
@@ -179,11 +180,12 @@ def test_recursive_rel(establish_connection):
     rel = e["_rels"][0]
     excepted_rel = {'_src': {'offset': 0, 'table': 0},
                     '_dst': {'offset': 0, 'table': 1},
+                    '_label': 'studyAt', 
                     'date': None, 'meetTime': None, 'validInterval': None,
                     'comments': None, 'year': 2021,
                     'places': ['wwAewsdndweusd', 'wek'],
-                    'length': 5, 'level': 5, 'grading': None, 'rating': None,
-                    'location': None, 'times': None, 'data': None,
+                    'length': 5, 'level': 5, 'code': 6556, 'temprature':35, 'ulength':120, 'ulevel': 15, 'grading': None,
+                    'rating': None, 'location': None, 'times': None, 'data': None,
                     'usedAddress': None, 'address': None, 'note': None}
     assert (rel == excepted_rel)
     assert not result.has_next()

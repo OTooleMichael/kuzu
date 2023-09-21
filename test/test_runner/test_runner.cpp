@@ -5,6 +5,7 @@
 #include "common/exception/test.h"
 #include "common/string_utils.h"
 #include "spdlog/spdlog.h"
+#include "test_helper/test_helper.h"
 
 using namespace kuzu::main;
 using namespace kuzu::common;
@@ -12,14 +13,17 @@ using namespace kuzu::common;
 namespace kuzu {
 namespace testing {
 
-void TestRunner::runTest(const std::vector<std::unique_ptr<TestStatement>>& statements,
-    Connection& conn, std::string& databasePath) {
-    for (auto& statement : statements) {
-        spdlog::info("DEBUG LOG: {}", statement->logMessage);
-        spdlog::info("QUERY: {}", statement->query);
-        conn.setMaxNumThreadForExec(statement->numThreads);
-        ASSERT_TRUE(testStatement(statement.get(), conn, databasePath));
+void TestRunner::runTest(TestStatement* statement, Connection& conn, std::string& databasePath) {
+    // for batch statements
+    if (!statement->batchStatmentsCSVFile.empty()) {
+        TestHelper::executeScript(statement->batchStatmentsCSVFile, conn);
+        return;
     }
+    // for normal statement
+    spdlog::info("DEBUG LOG: {}", statement->logMessage);
+    spdlog::info("QUERY: {}", statement->query);
+    conn.setMaxNumThreadForExec(statement->numThreads);
+    ASSERT_TRUE(testStatement(statement, conn, databasePath));
 }
 
 bool TestRunner::testStatement(

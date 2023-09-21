@@ -1,8 +1,8 @@
 #pragma once
 
 #include "common/types/types.h"
-#include "storage/copier/table_copy_utils.h"
 #include "storage/storage_structure/in_mem_file.h"
+#include "storage/store/table_copy_utils.h"
 #include <arrow/array/array_base.h>
 #include <arrow/array/array_binary.h>
 #include <arrow/array/array_primitive.h>
@@ -19,7 +19,7 @@ struct PropertyCopyState {
 class InMemColumnChunk {
 public:
     InMemColumnChunk(common::LogicalType dataType, common::offset_t startNodeOffset,
-        common::offset_t endNodeOffset, std::unique_ptr<common::CopyDescription> copyDescription,
+        common::offset_t endNodeOffset, std::unique_ptr<common::CSVReaderConfig> csvReaderConfig,
         bool requireNullBits = true);
 
     virtual ~InMemColumnChunk() = default;
@@ -81,16 +81,16 @@ protected:
     std::uint64_t numBytes;
     std::unique_ptr<uint8_t[]> buffer;
     std::unique_ptr<InMemColumnChunk> nullChunk;
-    std::unique_ptr<common::CopyDescription> copyDescription;
+    std::unique_ptr<common::CSVReaderConfig> csvReaderConfig;
 };
 
 class InMemColumnChunkWithOverflow : public InMemColumnChunk {
 public:
     InMemColumnChunkWithOverflow(common::LogicalType dataType, common::offset_t startNodeOffset,
-        common::offset_t endNodeOffset, std::unique_ptr<common::CopyDescription> copyDescription,
+        common::offset_t endNodeOffset, std::unique_ptr<common::CSVReaderConfig> csvReaderConfig,
         InMemOverflowFile* inMemOverflowFile)
         : InMemColumnChunk{std::move(dataType), startNodeOffset, endNodeOffset,
-              std::move(copyDescription)},
+              std::move(csvReaderConfig)},
           inMemOverflowFile{inMemOverflowFile}, blobBuffer{std::make_unique<uint8_t[]>(
                                                     common::BufferPoolConstants::PAGE_4KB_SIZE)} {}
 
@@ -123,7 +123,7 @@ private:
 class InMemFixedListColumnChunk : public InMemColumnChunk {
 public:
     InMemFixedListColumnChunk(common::LogicalType dataType, common::offset_t startNodeOffset,
-        common::offset_t endNodeOffset, std::unique_ptr<common::CopyDescription> copyDescription);
+        common::offset_t endNodeOffset, std::unique_ptr<common::CSVReaderConfig> csvReaderConfig);
 
     void flush(common::FileInfo* walFileInfo) override;
 

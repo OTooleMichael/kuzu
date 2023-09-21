@@ -2,11 +2,11 @@
 
 #include "common/exception/message.h"
 #include "common/exception/runtime.h"
-#include "storage/copier/string_column_chunk.h"
-#include "storage/copier/var_list_column_chunk.h"
 #include "storage/store/node_table.h"
+#include "storage/store/string_column_chunk.h"
 #include "storage/store/string_node_column.h"
 #include "storage/store/struct_node_column.h"
+#include "storage/store/var_list_column_chunk.h"
 #include "storage/store/var_list_node_column.h"
 
 using namespace kuzu::common;
@@ -366,22 +366,22 @@ void LocalTable::lookup(ValueVector* nodeIDVector, const std::vector<column_id_t
     }
 }
 
-void LocalTable::update(property_id_t propertyID, ValueVector* nodeIDVector,
+void LocalTable::update(column_id_t columnID, ValueVector* nodeIDVector,
     ValueVector* propertyVector, MemoryManager* mm) {
-    if (!columns.contains(propertyID)) {
-        columns.emplace(propertyID,
-            LocalColumnFactory::createLocalColumn(table->getPropertyColumn(propertyID)));
+    if (!columns.contains(columnID)) {
+        columns.emplace(
+            columnID, LocalColumnFactory::createLocalColumn(table->getColumn(columnID)));
     }
-    columns.at(propertyID)->update(nodeIDVector, propertyVector, mm);
+    columns.at(columnID)->update(nodeIDVector, propertyVector, mm);
 }
 
-void LocalTable::update(property_id_t propertyID, offset_t nodeOffset, ValueVector* propertyVector,
+void LocalTable::update(column_id_t columnID, offset_t nodeOffset, ValueVector* propertyVector,
     sel_t posInPropertyVector, MemoryManager* mm) {
-    if (!columns.contains(propertyID)) {
-        columns.emplace(propertyID,
-            LocalColumnFactory::createLocalColumn(table->getPropertyColumn(propertyID)));
+    if (!columns.contains(columnID)) {
+        columns.emplace(
+            columnID, LocalColumnFactory::createLocalColumn(table->getColumn(columnID)));
     }
-    columns.at(propertyID)->update(nodeOffset, propertyVector, posInPropertyVector, mm);
+    columns.at(columnID)->update(nodeOffset, propertyVector, posInPropertyVector, mm);
 }
 
 void LocalTable::prepareCommit() {

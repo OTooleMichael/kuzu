@@ -1,7 +1,6 @@
 #pragma once
 
 #include "binder/query/bound_regular_query.h"
-#include "common/copier_config/copier_config.h"
 #include "expression_binder.h"
 #include "parser/copy.h"
 #include "parser/query/regular_query.h"
@@ -22,6 +21,7 @@ class BoundSetPropertyInfo;
 class BoundDeleteInfo;
 class BoundWithClause;
 class BoundReturnClause;
+class BoundFileScanInfo;
 
 // BinderScope keeps track of expressions in scope and their aliases. We maintain the order of
 // expressions in
@@ -80,6 +80,8 @@ private:
     common::table_id_t bindNodeTableID(const std::string& tableName) const;
 
     std::shared_ptr<Expression> createVariable(
+        const std::string& name, common::LogicalTypeID logicalTypeID);
+    std::shared_ptr<Expression> createVariable(
         const std::string& name, const common::LogicalType& dataType);
 
     /*** bind DDL ***/
@@ -106,18 +108,23 @@ private:
     /*** bind copy ***/
     std::unique_ptr<BoundStatement> bindCopyFromClause(const parser::Statement& statement);
     std::unique_ptr<BoundStatement> bindCopyNodeFrom(
-        std::unique_ptr<common::CopyDescription> copyDescription,
-        catalog::TableSchema* tableSchema);
+        std::unique_ptr<common::ReaderConfig> readerConfig, catalog::TableSchema* tableSchema);
     std::unique_ptr<BoundStatement> bindCopyRelFrom(
-        std::unique_ptr<common::CopyDescription> copyDescription,
-        catalog::TableSchema* tableSchema);
-    expression_vector bindCopyNodeColumns(
-        catalog::TableSchema* tableSchema, common::CopyDescription::FileType fileType);
-    expression_vector bindCopyRelColumns(catalog::TableSchema* tableSchema);
+        std::unique_ptr<common::ReaderConfig> readerConfig, catalog::TableSchema* tableSchema);
+    std::unique_ptr<BoundStatement> bindCopyRdfRelFrom(
+        std::unique_ptr<common::ReaderConfig> readerConfig, catalog::TableSchema* tableSchema);
+    expression_vector bindExpectedNodeFileColumns(
+        catalog::TableSchema* tableSchema, common::ReaderConfig& readerConfig);
+    expression_vector bindExpectedRelFileColumns(
+        catalog::TableSchema* tableSchema, common::ReaderConfig& readerConfig);
     std::unique_ptr<BoundStatement> bindCopyToClause(const parser::Statement& statement);
+
+    /*** bind file scan ***/
     std::unique_ptr<common::CSVReaderConfig> bindParsingOptions(
-        const std::unordered_map<std::string, std::unique_ptr<parser::ParsedExpression>>&
-            parsingOptions);
+        const parser::parsing_option_t& parsingOptions);
+    static common::FileType bindFileType(const std::vector<std::string>& filePaths);
+    static common::FileType bindFileType(const std::string& filePath);
+    static std::vector<std::string> bindFilePaths(const std::vector<std::string>& filePaths);
 
     /*** bind query ***/
     std::unique_ptr<BoundRegularQuery> bindQuery(const parser::RegularQuery& regularQuery);
@@ -146,6 +153,7 @@ private:
     std::unique_ptr<BoundReadingClause> bindUnwindClause(
         const parser::ReadingClause& readingClause);
     std::unique_ptr<BoundReadingClause> bindInQueryCall(const parser::ReadingClause& readingClause);
+    std::unique_ptr<BoundReadingClause> bindLoadFrom(const parser::ReadingClause& readingClause);
 
     /*** bind updating clause ***/
     // TODO(Guodong/Xiyang): Is update clause an accurate name? How about (data)modificationClause?

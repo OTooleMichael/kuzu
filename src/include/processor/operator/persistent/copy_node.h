@@ -2,7 +2,7 @@
 
 #include "common/copier_config/copier_config.h"
 #include "processor/operator/sink.h"
-#include "storage/copier/node_group.h"
+#include "storage/store/node_group.h"
 #include "storage/store/node_table.h"
 
 namespace kuzu {
@@ -11,8 +11,8 @@ namespace processor {
 class CopyNodeSharedState {
 public:
     CopyNodeSharedState(uint64_t& numRows, catalog::NodeTableSchema* tableSchema,
-        storage::NodeTable* table, const common::CopyDescription& copyDesc,
-        storage::MemoryManager* memoryManager);
+        storage::NodeTable* table, storage::MemoryManager* memoryManager, bool isCopyRdf,
+        std::unique_ptr<common::CSVReaderConfig> csvReaderConfig);
 
     inline void initialize(const std::string& directory) { initializePrimaryKey(directory); };
 
@@ -41,7 +41,6 @@ public:
     std::mutex mtx;
     common::column_id_t pkColumnID;
     std::unique_ptr<storage::PrimaryKeyIndexBuilder> pkIndex;
-    common::CopyDescription copyDesc;
     storage::NodeTable* table;
     catalog::NodeTableSchema* tableSchema;
     uint64_t& numRows;
@@ -50,17 +49,23 @@ public:
     uint64_t currentNodeGroupIdx;
     // The sharedNodeGroup is to accumulate left data within local node groups in CopyNode ops.
     std::unique_ptr<storage::NodeGroup> sharedNodeGroup;
-    bool isCopyTurtle;
+    bool isCopyRdf;
+    std::unique_ptr<common::CSVReaderConfig> csvReaderConfig; // TODO: remove this
 };
 
 struct CopyNodeInfo {
     std::vector<DataPos> dataColumnPoses;
-    common::CopyDescription copyDesc;
     storage::NodeTable* table;
     storage::RelsStore* relsStore;
     catalog::Catalog* catalog;
     storage::WAL* wal;
     bool containsSerial;
+
+    CopyNodeInfo(std::vector<DataPos> dataColumnPoses, storage::NodeTable* table,
+        storage::RelsStore* relsStore, catalog::Catalog* catalog, storage::WAL* wal,
+        bool containsSerial)
+        : dataColumnPoses{std::move(dataColumnPoses)}, table{table}, relsStore{relsStore},
+          catalog{catalog}, wal{wal}, containsSerial{containsSerial} {}
 };
 
 class CopyNode : public Sink {
@@ -73,9 +78,11 @@ public:
         for (auto& arrowColumnPos : copyNodeInfo.dataColumnPoses) {
             dataColumnVectors.push_back(resultSet->getValueVector(arrowColumnPos).get());
         }
-        localNodeGroup =
-            std::make_unique<storage::NodeGroup>(sharedState->tableSchema, &sharedState->copyDesc);
+        localNodeGroup = std::make_unique<storage::NodeGroup>(
+            sharedState->tableSchema, sharedState->csvReaderConfig.get());
     }
+
+    inline bool canParallel() const final { return !copyNodeInfo.containsSerial; }
 
     void initGlobalStateInternal(ExecutionContext* context) final;
 

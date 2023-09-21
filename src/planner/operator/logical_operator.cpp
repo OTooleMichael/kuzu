@@ -1,4 +1,4 @@
-#include "planner/logical_plan/logical_operator.h"
+#include "planner/operator/logical_operator.h"
 
 #include "common/exception/not_implemented.h"
 
@@ -116,6 +116,9 @@ std::string LogicalOperatorUtils::logicalOperatorTypeToString(LogicalOperatorTyp
     }
     case LogicalOperatorType::RENAME_PROPERTY: {
         return "RENAME_PROPERTY";
+    }
+    case LogicalOperatorType::SCAN_FILE: {
+        return "SCAN_FILE";
     }
     case LogicalOperatorType::SCAN_FRONTIER: {
         return "SCAN_FRONTIER";

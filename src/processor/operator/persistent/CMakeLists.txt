@@ -2,7 +2,6 @@ add_subdirectory(reader)
 
 add_library(kuzu_processor_operator_persistent
         OBJECT
-        copy.cpp
         copy_node.cpp
         copy_rel.cpp
         copy_rel_columns.cpp
@@ -14,6 +13,8 @@ add_library(kuzu_processor_operator_persistent
         insert.cpp
         insert_executor.cpp
         merge.cpp
+        parquet_column_writer.cpp
+        parquet_file_writer.cpp
         reader.cpp
         reader_functions.cpp
         reader_state.cpp

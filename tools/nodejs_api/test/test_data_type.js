@@ -294,6 +294,7 @@ describe("REL", function () {
     assert.equal(rel.grading.length, 2);
     assert.equal(rel.grading[0], 2.1);
     assert.equal(rel.grading[1], 4.4);
+    assert.equal(rel._label, "workAt");
     assert.approximately(rel.rating, 7.6, EPSILON);
   });
 });
@@ -319,6 +320,10 @@ describe("RECURSIVE_REL", function () {
           places: ["wwAewsdndweusd", "wek"],
           length: 5,
           level: 5,
+          code: 6556,
+          temprature: 35,
+          ulength: 120,
+          ulevel: 15,
           grading: null,
           rating: null,
           location: null,
@@ -327,6 +332,7 @@ describe("RECURSIVE_REL", function () {
           usedAddress: null,
           address: null,
           note: null,
+          _label: "studyAt",
           _src: {
             offset: 0,
             table: 0,

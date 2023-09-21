@@ -1,5 +1,5 @@
 #include "binder/expression/rel_expression.h"
-#include "planner/logical_plan/persistent/logical_set.h"
+#include "planner/operator/persistent/logical_set.h"
 #include "processor/operator/persistent/set.h"
 #include "processor/plan_mapper.h"
 
@@ -29,16 +29,19 @@ std::unique_ptr<NodeSetExecutor> PlanMapper::getNodeSetExecutor(storage::NodesSt
             }
             auto propertyID = property->getPropertyID(tableID);
             auto table = store->getNodeTable(tableID);
-            tableIDToSetInfo.insert({tableID, NodeSetInfo{table, propertyID}});
+            auto columnID =
+                catalog->getReadOnlyVersion()->getTableSchema(tableID)->getColumnID(propertyID);
+            tableIDToSetInfo.insert({tableID, NodeSetInfo{table, columnID}});
         }
         return std::make_unique<MultiLabelNodeSetExecutor>(
             std::move(tableIDToSetInfo), nodeIDPos, propertyPos, std::move(evaluator));
     } else {
         auto tableID = node->getSingleTableID();
         auto table = store->getNodeTable(tableID);
+        auto columnID = catalog->getReadOnlyVersion()->getTableSchema(tableID)->getColumnID(
+            property->getPropertyID(tableID));
         return std::make_unique<SingleLabelNodeSetExecutor>(
-            NodeSetInfo{table, property->getPropertyID(tableID)}, nodeIDPos, propertyPos,
-            std::move(evaluator));
+            NodeSetInfo{table, columnID}, nodeIDPos, propertyPos, std::move(evaluator));
     }
 }
 

@@ -1,5 +1,5 @@
 
-// Generated from Cypher.g4 by ANTLR 4.9
+// Generated from Cypher.g4 by ANTLR 4.13.1
 
 #pragma once
 
@@ -25,57 +25,50 @@ public:
     RENAME = 63, ADD = 64, PRIMARY = 65, KEY = 66, REL = 67, TO = 68, EXPLAIN = 69, 
     PROFILE = 70, BEGIN = 71, TRANSACTION = 72, READ = 73, WRITE = 74, COMMIT = 75, 
     COMMIT_SKIP_CHECKPOINT = 76, ROLLBACK = 77, ROLLBACK_SKIP_CHECKPOINT = 78, 
-    UNION = 79, ALL = 80, OPTIONAL = 81, MATCH = 82, UNWIND = 83, CREATE = 84, 
-    MERGE = 85, ON = 86, SET = 87, DELETE = 88, WITH = 89, RETURN = 90, 
-    DISTINCT = 91, STAR = 92, AS = 93, ORDER = 94, BY = 95, L_SKIP = 96, 
-    LIMIT = 97, ASCENDING = 98, ASC = 99, DESCENDING = 100, DESC = 101, 
-    WHERE = 102, SHORTEST = 103, OR = 104, XOR = 105, AND = 106, NOT = 107, 
-    INVALID_NOT_EQUAL = 108, MINUS = 109, FACTORIAL = 110, STARTS = 111, 
-    ENDS = 112, CONTAINS = 113, IS = 114, NULL_ = 115, TRUE = 116, FALSE = 117, 
-    EXISTS = 118, CASE = 119, ELSE = 120, END = 121, WHEN = 122, THEN = 123, 
-    StringLiteral = 124, EscapedChar = 125, DecimalInteger = 126, HexLetter = 127, 
-    HexDigit = 128, Digit = 129, NonZeroDigit = 130, NonZeroOctDigit = 131, 
-    ZeroDigit = 132, RegularDecimalReal = 133, UnescapedSymbolicName = 134, 
-    IdentifierStart = 135, IdentifierPart = 136, EscapedSymbolicName = 137, 
-    SP = 138, WHITESPACE = 139, Comment = 140, Unknown = 141
+    UNION = 79, ALL = 80, LOAD = 81, OPTIONAL = 82, MATCH = 83, UNWIND = 84, 
+    CREATE = 85, MERGE = 86, ON = 87, SET = 88, DELETE = 89, WITH = 90, 
+    RETURN = 91, DISTINCT = 92, STAR = 93, AS = 94, ORDER = 95, BY = 96, 
+    L_SKIP = 97, LIMIT = 98, ASCENDING = 99, ASC = 100, DESCENDING = 101, 
+    DESC = 102, WHERE = 103, SHORTEST = 104, OR = 105, XOR = 106, AND = 107, 
+    NOT = 108, INVALID_NOT_EQUAL = 109, MINUS = 110, FACTORIAL = 111, STARTS = 112, 
+    ENDS = 113, CONTAINS = 114, IS = 115, NULL_ = 116, TRUE = 117, FALSE = 118, 
+    EXISTS = 119, CASE = 120, ELSE = 121, END = 122, WHEN = 123, THEN = 124, 
+    StringLiteral = 125, EscapedChar = 126, DecimalInteger = 127, HexLetter = 128, 
+    HexDigit = 129, Digit = 130, NonZeroDigit = 131, NonZeroOctDigit = 132, 
+    ZeroDigit = 133, RegularDecimalReal = 134, UnescapedSymbolicName = 135, 
+    IdentifierStart = 136, IdentifierPart = 137, EscapedSymbolicName = 138, 
+    SP = 139, WHITESPACE = 140, Comment = 141, Unknown = 142
   };
 
   explicit CypherLexer(antlr4::CharStream *input);
-  ~CypherLexer();
 
-  virtual std::string getGrammarFileName() const override;
-  virtual const std::vector<std::string>& getRuleNames() const override;
+  ~CypherLexer() override;
 
-  virtual const std::vector<std::string>& getChannelNames() const override;
-  virtual const std::vector<std::string>& getModeNames() const override;
-  virtual const std::vector<std::string>& getTokenNames() const override; // deprecated, use vocabulary instead
-  virtual antlr4::dfa::Vocabulary& getVocabulary() const override;
 
-  virtual const std::vector<uint16_t> getSerializedATN() const override;
-  virtual const antlr4::atn::ATN& getATN() const override;
+  std::string getGrammarFileName() const override;
+
+  const std::vector<std::string>& getRuleNames() const override;
+
+  const std::vector<std::string>& getChannelNames() const override;
+
+  const std::vector<std::string>& getModeNames() const override;
+
+  const antlr4::dfa::Vocabulary& getVocabulary() const override;
+
+  antlr4::atn::SerializedATNView getSerializedATN() const override;
+
+  const antlr4::atn::ATN& getATN() const override;
+
+  // By default the static state used to implement the lexer is lazily initialized during the first
+  // call to the constructor. You can call this function if you wish to initialize the static state
+  // ahead of time.
+  static void initialize();
 
 private:
-  static std::vector<antlr4::dfa::DFA> _decisionToDFA;
-  static antlr4::atn::PredictionContextCache _sharedContextCache;
-  static std::vector<std::string> _ruleNames;
-  static std::vector<std::string> _tokenNames;
-  static std::vector<std::string> _channelNames;
-  static std::vector<std::string> _modeNames;
-
-  static std::vector<std::string> _literalNames;
-  static std::vector<std::string> _symbolicNames;
-  static antlr4::dfa::Vocabulary _vocabulary;
-  static antlr4::atn::ATN _atn;
-  static std::vector<uint16_t> _serializedATN;
-
 
   // Individual action functions triggered by action() above.
 
   // Individual semantic predicate functions triggered by sempred() above.
 
-  struct Initializer {
-    Initializer();
-  };
-  static Initializer _init;
 };
 

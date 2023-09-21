@@ -15,6 +15,7 @@
 #include "function/list/functions/list_len_function.h"
 #include "function/list/functions/list_position_function.h"
 #include "function/list/functions/list_prepend_function.h"
+#include "function/list/functions/list_range_function.h"
 #include "function/list/functions/list_reverse_sort_function.h"
 #include "function/list/functions/list_slice_function.h"
 #include "function/list/functions/list_sort_function.h"
@@ -94,6 +95,32 @@ vector_function_definitions ListCreationVectorFunction::getDefinitions() {
     return result;
 }
 
+std::unique_ptr<FunctionBindData> ListRangeVectorFunction::bindFunc(
+    const binder::expression_vector& arguments, kuzu::function::FunctionDefinition* definition) {
+    assert(arguments[0]->dataType == arguments[1]->dataType);
+    auto varListTypeInfo = std::make_unique<VarListTypeInfo>(
+        std::make_unique<LogicalType>(arguments[0]->dataType.getLogicalTypeID()));
+    auto resultType = LogicalType{LogicalTypeID::VAR_LIST, std::move(varListTypeInfo)};
+    return std::make_unique<FunctionBindData>(resultType);
+}
+
+vector_function_definitions ListRangeVectorFunction::getDefinitions() {
+    vector_function_definitions result;
+    for (auto typeID : LogicalTypeUtils::getIntegerLogicalTypeIDs()) {
+        // start, end
+        result.push_back(std::make_unique<VectorFunctionDefinition>(LIST_RANGE_FUNC_NAME,
+            std::vector<LogicalTypeID>{typeID, typeID}, LogicalTypeID::VAR_LIST,
+            getBinaryListExecFuncSwitchAll<Range, list_entry_t>(LogicalType{typeID}), nullptr,
+            bindFunc, false));
+        // start, end, step
+        result.push_back(std::make_unique<VectorFunctionDefinition>(LIST_RANGE_FUNC_NAME,
+            std::vector<LogicalTypeID>{typeID, typeID, typeID}, LogicalTypeID::VAR_LIST,
+            getTernaryListExecFuncSwitchAll<Range, list_entry_t>(LogicalType{typeID}), nullptr,
+            bindFunc, false));
+    }
+    return result;
+}
+
 vector_function_definitions ListLenVectorFunction::getDefinitions() {
     vector_function_definitions result;
     auto execFunc = UnaryExecFunction<list_entry_t, int64_t, ListLen>;
@@ -130,6 +157,22 @@ std::unique_ptr<FunctionBindData> ListExtractVectorFunction::bindFunc(
     case PhysicalTypeID::INT8: {
         vectorFunctionDefinition->execFunc =
             BinaryExecListStructFunction<list_entry_t, int64_t, int8_t, ListExtract>;
+    } break;
+    case PhysicalTypeID::UINT64: {
+        vectorFunctionDefinition->execFunc =
+            BinaryExecListStructFunction<list_entry_t, int64_t, uint64_t, ListExtract>;
+    } break;
+    case PhysicalTypeID::UINT32: {
+        vectorFunctionDefinition->execFunc =
+            BinaryExecListStructFunction<list_entry_t, int64_t, uint32_t, ListExtract>;
+    } break;
+    case PhysicalTypeID::UINT16: {
+        vectorFunctionDefinition->execFunc =
+            BinaryExecListStructFunction<list_entry_t, int64_t, uint16_t, ListExtract>;
+    } break;
+    case PhysicalTypeID::UINT8: {
+        vectorFunctionDefinition->execFunc =
+            BinaryExecListStructFunction<list_entry_t, int64_t, uint8_t, ListExtract>;
     } break;
     case PhysicalTypeID::DOUBLE: {
         vectorFunctionDefinition->execFunc =
@@ -206,7 +249,7 @@ std::unique_ptr<FunctionBindData> ListAppendVectorFunction::bindFunc(
     auto resultType = arguments[0]->getDataType();
     auto vectorFunctionDefinition = reinterpret_cast<VectorFunctionDefinition*>(definition);
     vectorFunctionDefinition->execFunc =
-        getBinaryListExecFunc<ListAppend, list_entry_t>(arguments[1]->getDataType());
+        getBinaryListExecFuncSwitchRight<ListAppend, list_entry_t>(arguments[1]->getDataType());
     return std::make_unique<FunctionBindData>(resultType);
 }
 
@@ -243,6 +286,22 @@ std::unique_ptr<FunctionBindData> ListPrependVectorFunction::bindFunc(
     case PhysicalTypeID::INT8: {
         vectorFunctionDefinition->execFunc =
             BinaryExecListStructFunction<int8_t, list_entry_t, list_entry_t, ListPrepend>;
+    } break;
+    case PhysicalTypeID::UINT64: {
+        vectorFunctionDefinition->execFunc =
+            BinaryExecListStructFunction<uint64_t, list_entry_t, list_entry_t, ListPrepend>;
+    } break;
+    case PhysicalTypeID::UINT32: {
+        vectorFunctionDefinition->execFunc =
+            BinaryExecListStructFunction<uint32_t, list_entry_t, list_entry_t, ListPrepend>;
+    } break;
+    case PhysicalTypeID::UINT16: {
+        vectorFunctionDefinition->execFunc =
+            BinaryExecListStructFunction<uint16_t, list_entry_t, list_entry_t, ListPrepend>;
+    } break;
+    case PhysicalTypeID::UINT8: {
+        vectorFunctionDefinition->execFunc =
+            BinaryExecListStructFunction<uint8_t, list_entry_t, list_entry_t, ListPrepend>;
     } break;
     case PhysicalTypeID::DOUBLE: {
         vectorFunctionDefinition->execFunc =
@@ -299,7 +358,7 @@ std::unique_ptr<FunctionBindData> ListPositionVectorFunction::bindFunc(
     const binder::expression_vector& arguments, FunctionDefinition* definition) {
     auto vectorFunctionDefinition = reinterpret_cast<VectorFunctionDefinition*>(definition);
     vectorFunctionDefinition->execFunc =
-        getBinaryListExecFunc<ListPosition, int64_t>(arguments[1]->getDataType());
+        getBinaryListExecFuncSwitchRight<ListPosition, int64_t>(arguments[1]->getDataType());
     return std::make_unique<FunctionBindData>(LogicalType{LogicalTypeID::INT64});
 }
 
@@ -315,7 +374,7 @@ std::unique_ptr<FunctionBindData> ListContainsVectorFunction::bindFunc(
     const binder::expression_vector& arguments, FunctionDefinition* definition) {
     auto vectorFunctionDefinition = reinterpret_cast<VectorFunctionDefinition*>(definition);
     vectorFunctionDefinition->execFunc =
-        getBinaryListExecFunc<ListContains, uint8_t>(arguments[1]->getDataType());
+        getBinaryListExecFuncSwitchRight<ListContains, uint8_t>(arguments[1]->getDataType());
     return std::make_unique<FunctionBindData>(LogicalType{LogicalTypeID::BOOL});
 }
 
@@ -372,6 +431,18 @@ std::unique_ptr<FunctionBindData> ListSortVectorFunction::bindFunc(
     } break;
     case LogicalTypeID::INT8: {
         getExecFunction<int8_t>(arguments, vectorFunctionDefinition->execFunc);
+    } break;
+    case LogicalTypeID::UINT64: {
+        getExecFunction<uint64_t>(arguments, vectorFunctionDefinition->execFunc);
+    } break;
+    case LogicalTypeID::UINT32: {
+        getExecFunction<uint32_t>(arguments, vectorFunctionDefinition->execFunc);
+    } break;
+    case LogicalTypeID::UINT16: {
+        getExecFunction<uint16_t>(arguments, vectorFunctionDefinition->execFunc);
+    } break;
+    case LogicalTypeID::UINT8: {
+        getExecFunction<uint8_t>(arguments, vectorFunctionDefinition->execFunc);
     } break;
     case LogicalTypeID::DOUBLE: {
         getExecFunction<double_t>(arguments, vectorFunctionDefinition->execFunc);
@@ -447,6 +518,18 @@ std::unique_ptr<FunctionBindData> ListReverseSortVectorFunction::bindFunc(
     case LogicalTypeID::INT8: {
         getExecFunction<int8_t>(arguments, vectorFunctionDefinition->execFunc);
     } break;
+    case LogicalTypeID::UINT64: {
+        getExecFunction<uint64_t>(arguments, vectorFunctionDefinition->execFunc);
+    } break;
+    case LogicalTypeID::UINT32: {
+        getExecFunction<uint32_t>(arguments, vectorFunctionDefinition->execFunc);
+    } break;
+    case LogicalTypeID::UINT16: {
+        getExecFunction<uint16_t>(arguments, vectorFunctionDefinition->execFunc);
+    } break;
+    case LogicalTypeID::UINT8: {
+        getExecFunction<uint8_t>(arguments, vectorFunctionDefinition->execFunc);
+    } break;
     case LogicalTypeID::DOUBLE: {
         getExecFunction<double_t>(arguments, vectorFunctionDefinition->execFunc);
     } break;
@@ -520,6 +603,22 @@ std::unique_ptr<FunctionBindData> ListSumVectorFunction::bindFunc(
         vectorFunctionDefinition->execFunc =
             UnaryExecListStructFunction<list_entry_t, int8_t, ListSum>;
     } break;
+    case LogicalTypeID::UINT64: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, uint64_t, ListSum>;
+    } break;
+    case LogicalTypeID::UINT32: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, uint32_t, ListSum>;
+    } break;
+    case LogicalTypeID::UINT16: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, uint16_t, ListSum>;
+    } break;
+    case LogicalTypeID::UINT8: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, uint8_t, ListSum>;
+    } break;
     case LogicalTypeID::DOUBLE: {
         vectorFunctionDefinition->execFunc =
             UnaryExecListStructFunction<list_entry_t, double_t, ListSum>;
@@ -563,6 +662,22 @@ std::unique_ptr<FunctionBindData> ListDistinctVectorFunction::bindFunc(
     case LogicalTypeID::INT8: {
         vectorFunctionDefinition->execFunc =
             UnaryExecListStructFunction<list_entry_t, list_entry_t, ListDistinct<int8_t>>;
+    } break;
+    case LogicalTypeID::UINT64: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, list_entry_t, ListDistinct<uint64_t>>;
+    } break;
+    case LogicalTypeID::UINT32: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, list_entry_t, ListDistinct<uint32_t>>;
+    } break;
+    case LogicalTypeID::UINT16: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, list_entry_t, ListDistinct<uint16_t>>;
+    } break;
+    case LogicalTypeID::UINT8: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, list_entry_t, ListDistinct<uint8_t>>;
     } break;
     case LogicalTypeID::DOUBLE: {
         vectorFunctionDefinition->execFunc =
@@ -632,6 +747,22 @@ std::unique_ptr<FunctionBindData> ListUniqueVectorFunction::bindFunc(
         vectorFunctionDefinition->execFunc =
             UnaryExecListStructFunction<list_entry_t, int64_t, ListUnique<int8_t>>;
     } break;
+    case LogicalTypeID::UINT64: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, int64_t, ListUnique<uint64_t>>;
+    } break;
+    case LogicalTypeID::UINT32: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, int64_t, ListUnique<uint32_t>>;
+    } break;
+    case LogicalTypeID::UINT16: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, int64_t, ListUnique<uint16_t>>;
+    } break;
+    case LogicalTypeID::UINT8: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, int64_t, ListUnique<uint8_t>>;
+    } break;
     case LogicalTypeID::DOUBLE: {
         vectorFunctionDefinition->execFunc =
             UnaryExecListStructFunction<list_entry_t, int64_t, ListUnique<double_t>>;
@@ -700,6 +831,22 @@ std::unique_ptr<FunctionBindData> ListAnyValueVectorFunction::bindFunc(
     case LogicalTypeID::INT8: {
         vectorFunctionDefinition->execFunc =
             UnaryExecListStructFunction<list_entry_t, int8_t, ListAnyValue>;
+    } break;
+    case LogicalTypeID::UINT64: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, uint64_t, ListAnyValue>;
+    } break;
+    case LogicalTypeID::UINT32: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, uint32_t, ListAnyValue>;
+    } break;
+    case LogicalTypeID::UINT16: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, uint16_t, ListAnyValue>;
+    } break;
+    case LogicalTypeID::UINT8: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, uint8_t, ListAnyValue>;
     } break;
     case LogicalTypeID::DOUBLE: {
         vectorFunctionDefinition->execFunc =

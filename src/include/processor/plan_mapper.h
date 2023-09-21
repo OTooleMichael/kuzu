@@ -3,11 +3,11 @@
 #include "binder/expression/node_expression.h"
 #include "common/statement_type.h"
 #include "expression_mapper.h"
-#include "planner/logical_plan/logical_plan.h"
+#include "planner/operator/logical_plan.h"
 #include "processor/operator/result_collector.h"
 #include "processor/physical_plan.h"
+#include "storage/stats/nodes_statistics_and_deleted_ids.h"
 #include "storage/storage_manager.h"
-#include "storage/store/nodes_statistics_and_deleted_ids.h"
 
 namespace kuzu {
 namespace planner {
@@ -40,6 +40,7 @@ public:
 
 private:
     std::unique_ptr<PhysicalOperator> mapOperator(planner::LogicalOperator* logicalOperator);
+    std::unique_ptr<PhysicalOperator> mapScanFile(planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapScanFrontier(planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapScanNode(planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapIndexScanNode(planner::LogicalOperator* logicalOperator);
@@ -97,13 +98,6 @@ private:
     std::unique_ptr<PhysicalOperator> mapCreateMacro(planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapTransaction(planner::LogicalOperator* logicalOperator);
 
-    std::unique_ptr<PhysicalOperator> createReader(common::CopyDescription* copyDesc,
-        catalog::TableSchema* tableSchema, planner::Schema* outSchema,
-        const std::vector<std::shared_ptr<binder::Expression>>& dataColumnExpressions,
-        const std::shared_ptr<binder::Expression>& offsetExpression, bool readingInSerial);
-    std::unique_ptr<PhysicalOperator> createIndexLookup(catalog::RelTableSchema* tableSchema,
-        const std::vector<DataPos>& dataPoses, const DataPos& boundOffsetDataPos,
-        const DataPos& nbrOffsetDataPos, std::unique_ptr<PhysicalOperator> readerOp);
     std::unique_ptr<PhysicalOperator> createCopyRelColumnsOrLists(
         std::shared_ptr<CopyRelSharedState> sharedState, planner::LogicalCopyFrom* copyFrom,
         bool isColumns, std::unique_ptr<PhysicalOperator> copyRelColumns);
@@ -136,7 +130,7 @@ private:
 
     std::unique_ptr<NodeInsertExecutor> getNodeInsertExecutor(storage::NodesStore* nodesStore,
         storage::RelsStore* relsStore, planner::LogicalCreateNodeInfo* info,
-        const planner::Schema& inSchema, const planner::Schema& outSchema);
+        const planner::Schema& inSchema, const planner::Schema& outSchema) const;
     std::unique_ptr<RelInsertExecutor> getRelInsertExecutor(storage::RelsStore* relsStore,
         planner::LogicalCreateRelInfo* info, const planner::Schema& inSchema,
         const planner::Schema& outSchema);

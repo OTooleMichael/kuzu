@@ -1,7 +1,6 @@
 #include "processor/operator/persistent/reader/rdf_reader.h"
 
 #include <cstdio>
-#include <utility>
 
 #include "common/constants.h"
 #include "common/exception/copy.h"
@@ -11,7 +10,7 @@
 using namespace kuzu::common;
 
 namespace kuzu {
-namespace storage {
+namespace processor {
 
 RDFReader::RDFReader(std::string filePath)
     : filePath{std::move(filePath)}, subjectVector{nullptr}, predicateVector{nullptr},
@@ -68,9 +67,6 @@ bool RDFReader::isSerdTypeSupported(SerdType serdType) {
 }
 
 offset_t RDFReader::read(DataChunk* dataChunk) {
-    for (auto& vector : dataChunk->valueVectors) {
-        vector->resetAuxiliaryBuffer();
-    }
     if (status) {
         return 0;
     }
@@ -94,5 +90,5 @@ offset_t RDFReader::read(DataChunk* dataChunk) {
     return numLinesRead;
 }
 
-} // namespace storage
+} // namespace processor
 } // namespace kuzu

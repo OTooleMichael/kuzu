@@ -6,7 +6,7 @@
 #include "storage/in_mem_storage_structure/in_mem_column.h"
 #include "storage/in_mem_storage_structure/in_mem_column_chunk.h"
 #include "storage/in_mem_storage_structure/in_mem_lists.h"
-#include "storage/store/rels_statistics.h"
+#include "storage/stats/rels_statistics.h"
 
 namespace kuzu {
 namespace processor {
@@ -53,6 +53,14 @@ struct CopyRelInfo {
     DataPos boundOffsetPos;
     DataPos nbrOffsetPos;
     storage::WAL* wal;
+    bool containsSerial;
+
+    CopyRelInfo(catalog::RelTableSchema* schema, std::vector<DataPos> dataPose,
+        const DataPos& offsetPos, const DataPos& boundOffsetPos, const DataPos& nbrOffsetPos,
+        storage::WAL* wal, bool containsSerial)
+        : schema{schema}, dataPoses{std::move(dataPose)}, offsetPos{offsetPos},
+          boundOffsetPos{boundOffsetPos}, nbrOffsetPos{nbrOffsetPos}, wal{wal},
+          containsSerial{containsSerial} {}
 };
 
 class CopyRel;
@@ -108,6 +116,8 @@ public:
           info{std::move(info)}, sharedState{std::move(sharedState)} {
         children.push_back(std::move(right));
     }
+
+    inline bool canParallel() const final { return !info.containsSerial; }
 
     void initLocalStateInternal(ResultSet* resultSet_, ExecutionContext* context) final;
     void initGlobalStateInternal(ExecutionContext* context) final;
