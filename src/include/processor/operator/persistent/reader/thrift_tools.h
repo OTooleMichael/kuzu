@@ -15,12 +15,12 @@ struct ReadHead {
     uint64_t size;
 
     // Current info
-    std::unique_ptr<uint8_t> data;
+    std::unique_ptr<uint8_t[]> data;
     bool data_isset = false;
 
     uint64_t GetEnd() const { return size + location; }
 
-    void Allocate() { data = std::make_unique<uint8_t>(size); }
+    void Allocate() { data = std::make_unique<uint8_t[]>(size); }
 };
 
 // Comparator for ReadHeads that are either overlapping, adjacent, or within ALLOW_GAP bytes from

@@ -143,6 +143,8 @@ public:
     VarListTypeInfo() = default;
     explicit VarListTypeInfo(std::unique_ptr<LogicalType> childType)
         : childType{std::move(childType)} {}
+    explicit VarListTypeInfo(LogicalTypeID childTypeID)
+        : childType{std::make_unique<LogicalType>(childTypeID)} {}
     inline LogicalType* getChildType() const { return childType.get(); }
     bool operator==(const VarListTypeInfo& other) const;
     std::unique_ptr<ExtraTypeInfo> copy() const override;
@@ -237,7 +239,7 @@ class LogicalType {
 
 public:
     KUZU_API LogicalType() : typeID{LogicalTypeID::ANY}, extraTypeInfo{nullptr} {};
-    KUZU_API explicit LogicalType(LogicalTypeID typeID) : typeID{typeID}, extraTypeInfo{nullptr} {
+    KUZU_API LogicalType(LogicalTypeID typeID) : typeID{typeID}, extraTypeInfo{nullptr} {
         setPhysicalType();
     };
     KUZU_API LogicalType(LogicalTypeID typeID, std::unique_ptr<ExtraTypeInfo> extraTypeInfo)

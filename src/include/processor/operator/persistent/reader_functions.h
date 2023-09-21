@@ -1,6 +1,7 @@
 #pragma once
 
 #include "processor/operator/persistent/reader/csv_reader.h"
+#include "processor/operator/persistent/reader/parquet_reader.h"
 #include "processor/operator/persistent/reader/rdf_reader.h"
 #include "storage/copier/npy_reader.h"
 #include "storage/copier/table_copy_utils.h"
@@ -24,7 +25,7 @@ struct NodeCSVReaderFunctionData : public ReaderFunctionData {
 };
 
 struct ParquetReaderFunctionData : public ReaderFunctionData {
-    std::unique_ptr<parquet::arrow::FileReader> reader = nullptr;
+    std::unique_ptr<ParquetReader> reader = nullptr;
 };
 
 struct NPYReaderFunctionData : public ReaderFunctionData {

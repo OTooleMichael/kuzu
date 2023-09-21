@@ -1,55 +1,96 @@
 #pragma once
 
+#include <bitset>
+
+#include "common/constants.h"
 #include "common/types/types.h"
+#include "common/vector/value_vector.h"
 #include "parquet/parquet_types.h"
+#include "parquet_dbp_decoder.h"
+#include "parquet_rle_bp_decoder.h"
+#include "resizable_buffer.h"
+#include "thrift_tools.h"
 
 namespace kuzu {
 namespace processor {
 class ParquetReader;
 
-typedef std::bitset<STANDARD_VECTOR_SIZE> parquet_filter_t;
+typedef std::bitset<common::DEFAULT_VECTOR_CAPACITY> parquet_filter_t;
 
 class ColumnReader {
 public:
     ColumnReader(ParquetReader& reader, std::unique_ptr<common::LogicalType> type,
-        const parquet::format::SchemaElement* schema, uint64_t fileIdx, uint64_t maxDefinition,
+        const parquet::format::SchemaElement& schema, uint64_t fileIdx, uint64_t maxDefinition,
         uint64_t maxRepeat);
 
-public:
-    static unique_ptr<ColumnReader> CreateReader(ParquetReader& reader, const LogicalType& type_p,
-        const SchemaElement& schema_p, idx_t schema_idx_p, idx_t max_define, idx_t max_repeat);
-    virtual void InitializeRead(
-        idx_t row_group_index, const vector<ColumnChunk>& columns, TProtocol& protocol_p);
-    virtual idx_t Read(uint64_t num_values, parquet_filter_t& filter, data_ptr_t define_out,
-        data_ptr_t repeat_out, Vector& result_out);
+    static std::unique_ptr<ColumnReader> createReader(ParquetReader& reader,
+        std::unique_ptr<common::LogicalType> type, const parquet::format::SchemaElement& schema,
+        uint64_t fileIdx, uint64_t maxDefine, uint64_t maxRepeat);
 
-    virtual void Skip(idx_t num_values);
-
-    ParquetReader& Reader();
     inline common::LogicalType* getDataType() const { return type.get(); }
-    inline parquet::format::SchemaElement getSchema() const { return schema.get(); }
-    inline uint64_t getFileIdx() const { return fileIdx; }
-    inline uint64_t getMaxDefine() const { return maxDefine; }
-    inline uint64_t getMaxRepeat() const { return maxRepeat; }
 
-    virtual idx_t FileOffset() const;
+    virtual void InitializeRead(uint64_t row_group_index,
+        const std::vector<parquet::format::ColumnChunk>& columns,
+        apache::thrift::protocol::TProtocol& protocol_p);
+
     virtual uint64_t TotalCompressedSize();
-    virtual idx_t GroupRowsAvailable();
 
-    // register the range this reader will touch for prefetching
-    virtual void RegisterPrefetch(ThriftFileTransport& transport, bool allow_merge);
+    virtual void RegisterPrefetch(ThriftFileTransport& transport, bool allow_merge) {
+        if (chunk) {
+            uint64_t size = chunk->meta_data.total_compressed_size;
+            transport.RegisterPrefetch(FileOffset(), size, allow_merge);
+        }
+    }
 
-    virtual unique_ptr<BaseStatistics> Stats(
-        idx_t row_group_idx_p, const vector<ColumnChunk>& columns);
+    virtual uint64_t FileOffset() const {
+        if (!chunk) {
+            throw std::runtime_error("FileOffset called on ColumnReader with no chunk");
+        }
+        auto min_offset = UINT64_MAX;
+        if (chunk->meta_data.__isset.dictionary_page_offset) {
+            min_offset = std::min<uint64_t>(min_offset, chunk->meta_data.dictionary_page_offset);
+        }
+        if (chunk->meta_data.__isset.index_page_offset) {
+            min_offset = std::min<uint64_t>(min_offset, chunk->meta_data.index_page_offset);
+        }
+        min_offset = std::min<uint64_t>(min_offset, chunk->meta_data.data_page_offset);
+
+        return min_offset;
+    }
+
+    void ApplyPendingSkips(uint64_t num_values);
+
+    virtual uint64_t Read(uint64_t num_values, parquet_filter_t& filter, uint8_t* define_out,
+        uint8_t* repeat_out, common::ValueVector* result_out);
+
+    virtual void Offsets(uint32_t* offsets, uint8_t* defines, uint64_t num_values,
+        parquet_filter_t& filter, uint64_t result_offset, common::ValueVector* result) {
+        throw common::NotImplementedException{"ColumnReader::Offsets"};
+    }
+
+    virtual void Plain(std::shared_ptr<ByteBuffer> plain_data, uint8_t* defines,
+        uint64_t num_values, parquet_filter_t& filter, uint64_t result_offset,
+        common::ValueVector* result) {
+        throw common::NotImplementedException{"ColumnReader::Plain"};
+    }
+
+    void PrepareRead(parquet_filter_t& filter);
+
+    bool HasDefines() { return max_define > 0; }
+
+    bool HasRepeats() { return max_repeat > 0; }
+
+    virtual void DictReference(common::ValueVector* result) {}
+    virtual void PlainReference(std::shared_ptr<ByteBuffer>, common::ValueVector*& result) {}
 
     template<class VALUE_TYPE, class CONVERSION>
-    void PlainTemplated(shared_ptr<ByteBuffer> plain_data, uint8_t* defines, uint64_t num_values,
-        parquet_filter_t& filter, idx_t result_offset, Vector& result) {
-        auto result_ptr = FlatVector::GetData<VALUE_TYPE>(result);
-        auto& result_mask = FlatVector::Validity(result);
-        for (idx_t row_idx = 0; row_idx < num_values; row_idx++) {
-            if (HasDefines() && defines[row_idx + result_offset] != maxDefine) {
-                result_mask.SetInvalid(row_idx + result_offset);
+    void PlainTemplated(std::shared_ptr<ByteBuffer> plain_data, uint8_t* defines,
+        uint64_t num_values, parquet_filter_t& filter, uint64_t result_offset,
+        common::ValueVector* result) {
+        auto result_ptr = reinterpret_cast<VALUE_TYPE*>(result->getData());
+        for (auto row_idx = 0u; row_idx < num_values; row_idx++) {
+            if (HasDefines() && defines[row_idx + result_offset] != max_define) {
+                result->setNull(row_idx + result_offset, true);
                 continue;
             }
             if (filter[row_idx + result_offset]) {
@@ -61,93 +102,58 @@ public:
         }
     }
 
-protected:
-    // readers that use the default Read() need to implement those
-    virtual void Plain(shared_ptr<ByteBuffer> plain_data, uint8_t* defines, idx_t num_values,
-        parquet_filter_t& filter, idx_t result_offset, Vector& result);
-    virtual void Dictionary(shared_ptr<ResizeableBuffer> dictionary_data, idx_t num_entries);
-    virtual void Offsets(uint32_t* offsets, uint8_t* defines, idx_t num_values,
-        parquet_filter_t& filter, idx_t result_offset, Vector& result);
+    void AllocateBlock(uint64_t size);
+    void AllocateCompressed(uint64_t size);
 
-    // these are nops for most types, but not for strings
-    virtual void DictReference(Vector& result);
-    virtual void PlainReference(shared_ptr<ByteBuffer>, Vector& result);
+    void DecompressInternal(parquet::format::CompressionCodec::type codec, const uint8_t* src,
+        uint64_t src_size, uint8_t* dst, uint64_t dst_size);
+    void PreparePageV2(parquet::format::PageHeader& page_hdr);
+    void PreparePage(parquet::format::PageHeader& page_hdr);
+    void PrepareDataPage(parquet::format::PageHeader& page_hdr);
 
-    virtual void PrepareDeltaLengthByteArray(ResizeableBuffer& buffer);
-    virtual void PrepareDeltaByteArray(ResizeableBuffer& buffer);
-    virtual void DeltaByteArray(uint8_t* defines, idx_t num_values, parquet_filter_t& filter,
-        idx_t result_offset, Vector& result);
+    virtual void Dictionary(std::shared_ptr<ResizeableBuffer> data, uint64_t num_entries) {
+        throw common::NotImplementedException{"Dictionary"};
+    }
 
-    // applies any skips that were registered using Skip()
-    virtual void ApplyPendingSkips(idx_t num_values);
-
-    bool HasDefines() { return maxDefine > 0; }
-
-    bool HasRepeats() { return maxRepeat > 0; }
+    virtual void ResetPage() {}
 
 protected:
-    const parquet::format::SchemaElement* schema;
+    const parquet::format::SchemaElement& schema;
 
-    uint64_t fileIdx;
-    uint64_t maxDefine;
-    uint64_t maxRepeat;
+    uint64_t file_idx;
+    uint64_t max_define;
+    uint64_t max_repeat;
 
     ParquetReader& reader;
     std::unique_ptr<common::LogicalType> type;
-    unique_ptr<Vector> byte_array_data;
     uint64_t byte_array_count = 0;
 
     uint64_t pending_skips = 0;
 
-    virtual void ResetPage();
+    const parquet::format::ColumnChunk* chunk = nullptr;
 
-private:
-    void AllocateBlock(idx_t size);
-    void AllocateCompressed(idx_t size);
-    void PrepareRead(parquet_filter_t& filter);
-    void PreparePage(PageHeader& page_hdr);
-    void PrepareDataPage(PageHeader& page_hdr);
-    void PreparePageV2(PageHeader& page_hdr);
-    void DecompressInternal(CompressionCodec::type codec, const_data_ptr_t src, idx_t src_size,
-        data_ptr_t dst, idx_t dst_size);
+    apache::thrift::protocol::TProtocol* protocol;
+    uint64_t page_rows_available;
+    uint group_rows_available;
+    uint64_t chunk_read_offset;
 
-    const duckdb_parquet::format::ColumnChunk* chunk = nullptr;
-
-    duckdb_apache::thrift::protocol::TProtocol* protocol;
-    uint64_t pageRowsAvailable;
-    uint64_t groupRowsAvailable;
-    uint64_t chunkReadOffset;
-
-    shared_ptr<ResizeableBuffer> block;
+    std::shared_ptr<ResizeableBuffer> block;
 
     ResizeableBuffer compressed_buffer;
     ResizeableBuffer offset_buffer;
 
-    unique_ptr<RleBpDecoder> dict_decoder;
-    unique_ptr<RleBpDecoder> defined_decoder;
-    unique_ptr<RleBpDecoder> repeated_decoder;
-    unique_ptr<DbpDecoder> dbp_decoder;
-    unique_ptr<RleBpDecoder> rle_decoder;
+    std::unique_ptr<RleBpDecoder> dict_decoder;
+    std::unique_ptr<RleBpDecoder> defined_decoder;
+    std::unique_ptr<RleBpDecoder> repeated_decoder;
+    std::unique_ptr<DbpDecoder> dbp_decoder;
+    std::unique_ptr<RleBpDecoder> rle_decoder;
+
+    std::unique_ptr<common::ValueVector> byte_array_data;
 
     // dummies for Skip()
     parquet_filter_t none_filter;
-
-public:
-    template<class TARGET>
-    TARGET& Cast() {
-        if (TARGET::TYPE != PhysicalType::INVALID && type.InternalType() != TARGET::TYPE) {
-            throw InternalException("Failed to cast column reader to type - type mismatch");
-        }
-        return reinterpret_cast<TARGET&>(*this);
-    }
-
-    template<class TARGET>
-    const TARGET& Cast() const {
-        if (TARGET::TYPE != PhysicalType::INVALID && type.InternalType() != TARGET::TYPE) {
-            throw InternalException("Failed to cast column reader to type - type mismatch");
-        }
-        return reinterpret_cast<const TARGET&>(*this);
-    }
+    ResizeableBuffer dummy_define;
+    ResizeableBuffer dummy_repeat;
 };
 
 } // namespace processor

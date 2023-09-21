@@ -192,12 +192,14 @@ std::vector<FileBlocksInfo> ReaderFunctions::countRowsInParquetFile(
     const common::ReaderConfig& config, MemoryManager* memoryManager) {
     std::vector<FileBlocksInfo> fileInfos;
     fileInfos.reserve(config.filePaths.size());
-    //    for (const auto& path : paths) {
-    //        auto reader = std::make_unique<ParquetReader>();
-    //        FileBlocksInfo fileBlocksInfo{
-    //            (row_idx_t)metadata->num_rows(), (block_idx_t)metadata->num_row_groups()};
-    //        fileInfos.push_back(fileBlocksInfo);
-    //    }
+    for (const auto& path : config.filePaths) {
+        auto reader = std::make_unique<ParquetReader>(path);
+        auto numRows = reader->metadata->num_rows;
+        FileBlocksInfo fileBlocksInfo{
+            (row_idx_t)numRows, (block_idx_t)(numRows / DEFAULT_VECTOR_CAPACITY +
+                                              (numRows % DEFAULT_VECTOR_CAPACITY > 0 ? 1 : 0))};
+        fileInfos.push_back(fileBlocksInfo);
+    }
     return fileInfos;
 }
 
@@ -255,7 +257,7 @@ void ReaderFunctions::initParquetReadData(
     assert(fileIdx < config.getNumFiles());
     funcData.fileIdx = fileIdx;
     reinterpret_cast<ParquetReaderFunctionData&>(funcData).reader =
-        TableCopyUtils::createParquetReader(config.filePaths[fileIdx], config);
+        std::make_unique<ParquetReader>(config.filePaths[fileIdx]);
 }
 
 void ReaderFunctions::initNPYReadData(
@@ -297,15 +299,10 @@ void ReaderFunctions::readRowsFromNodeCSVFile(
 void ReaderFunctions::readRowsFromParquetFile(const ReaderFunctionData& functionData,
     block_idx_t blockIdx, common::DataChunk* dataChunkToRead) {
     auto& readerData = reinterpret_cast<const ParquetReaderFunctionData&>(functionData);
-    std::shared_ptr<arrow::Table> table;
-    TableCopyUtils::throwCopyExceptionIfNotOK(
-        readerData.reader->RowGroup(static_cast<int>(blockIdx))->ReadTable(&table));
-    assert(table);
-    for (auto i = 0u; i < dataChunkToRead->getNumValueVectors(); i++) {
-        ArrowColumnVector::setArrowColumn(
-            dataChunkToRead->getValueVector(i).get(), table->column((int)i));
-    }
-    dataChunkToRead->state->selVector->selectedSize = table->num_rows();
+    ParquetReaderScanState state;
+    readerData.reader->initializeScan(state, {0});
+    readerData.reader->scanInternal(state, *dataChunkToRead);
+    dataChunkToRead->state->selVector->selectedSize = 0;
 }
 
 void ReaderFunctions::readRowsFromNPYFile(const ReaderFunctionData& functionData,
