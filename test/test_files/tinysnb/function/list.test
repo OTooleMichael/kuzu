@@ -1673,3 +1673,73 @@ Ad
 0:5
 0:6
 0:7
+
+-LOG ListProductSeq1
+-STATEMENT Return list_product([1, 2, 3, NULL]);
+---- 1
+6
+
+-LOG ListProductSeq2
+-STATEMENT Return list_product([1.111111111111, 2.2, 3.3, NULL]);
+---- 1
+8.066667
+
+-LOG ListProductSeq3
+-STATEMENT Return list_product([NULL, NULL, NULL, NULL]);
+---- 1
+1
+# different from cypher standard: should return NULL
+
+-LOG ListProductSeq4
+-STATEMENT Return list_product([0, NULL, NULL, NULL]);
+---- 1
+0
+
+-LOG ListProductSeq5
+-STATEMENT Return list_product([-1, -2, -3]);
+---- 1
+-6
+
+-LOG ListProductInt8
+-STATEMENT Return list_product([to_int8(-1), to_int8(2), NULL, to_int8(3)]);
+---- 1
+-6
+
+-LOG ListProductInt16
+-STATEMENT Return list_product([to_int16(1), to_int16(2), to_int16(3), NULL]);
+---- 1
+6
+
+-LOG ListProductInt32
+-STATEMENT Return list_product([to_int32(-10), to_int32(20), to_int32(-5), NULL]);
+---- 1
+1000
+
+-LOG ListProductFloat
+-STATEMENT Return list_product([to_float(1.111111111111), to_float(2.2), to_float(3.3), NULL]);
+---- 1
+8.066668
+
+-LOG ListProductSerial
+-STATEMENT Return list_product([to_serial(1), to_serial(2)]);
+---- 1
+2
+
+-LOG ListProductUnsigned
+-STATEMENT Return list_product([to_uint8(1), to_uint8(10), to_uint8(3)]);
+---- 1
+30
+-STATEMENT Return list_product([to_uint16(4), to_uint16(10), to_uint16(3)]);
+---- 1
+120
+-STATEMENT Return list_product([to_uint32(9), to_uint32(2), to_uint32(3)]);
+---- 1
+54
+-STATEMENT Return list_product([to_uint64(9), to_uint64(2), to_uint64(3)]);
+---- 1
+54
+
+-LOG ListProductError
+-STATEMENT Return list_product(["ok"]);
+---- error
+ListProductVectorFunction::bindFunc

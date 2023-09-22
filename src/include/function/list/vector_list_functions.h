@@ -217,6 +217,12 @@ struct ListSumVectorFunction : public VectorListFunction {
         const binder::expression_vector& arguments, FunctionDefinition* definition);
 };
 
+struct ListProductVectorFunction : public VectorListFunction {
+    static vector_function_definitions getDefinitions();
+    static std::unique_ptr<FunctionBindData> bindFunc(
+        const binder::expression_vector& arguments, FunctionDefinition* definition);
+};
+
 struct ListDistinctVectorFunction : public VectorListFunction {
     static vector_function_definitions getDefinitions();
     static std::unique_ptr<FunctionBindData> bindFunc(

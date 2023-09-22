@@ -15,6 +15,7 @@
 #include "function/list/functions/list_len_function.h"
 #include "function/list/functions/list_position_function.h"
 #include "function/list/functions/list_prepend_function.h"
+#include "function/list/functions/list_product_function.h"
 #include "function/list/functions/list_range_function.h"
 #include "function/list/functions/list_reverse_sort_function.h"
 #include "function/list/functions/list_slice_function.h"
@@ -629,6 +630,67 @@ std::unique_ptr<FunctionBindData> ListSumVectorFunction::bindFunc(
     } break;
     default: {
         throw NotImplementedException("ListSumVectorFunction::bindFunc");
+    }
+    }
+    return std::make_unique<FunctionBindData>(*resultType);
+}
+
+vector_function_definitions ListProductVectorFunction::getDefinitions() {
+    vector_function_definitions result;
+    result.push_back(std::make_unique<VectorFunctionDefinition>(LIST_PRODUCT_FUNC_NAME,
+        std::vector<LogicalTypeID>{LogicalTypeID::VAR_LIST}, LogicalTypeID::INT64, nullptr, nullptr,
+        bindFunc, false /* isVarlength*/));
+    return result;
+}
+
+std::unique_ptr<FunctionBindData> ListProductVectorFunction::bindFunc(
+    const binder::expression_vector& arguments, FunctionDefinition* definition) {
+    auto vectorFunctionDefinition = reinterpret_cast<VectorFunctionDefinition*>(definition);
+    auto resultType = VarListType::getChildType(&arguments[0]->dataType);
+    switch (resultType->getLogicalTypeID()) {
+    case LogicalTypeID::SERIAL:
+    case LogicalTypeID::INT64: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, int64_t, ListProduct>;
+    } break;
+    case LogicalTypeID::INT32: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, int32_t, ListProduct>;
+    } break;
+    case LogicalTypeID::INT16: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, int16_t, ListProduct>;
+    } break;
+    case LogicalTypeID::INT8: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, int8_t, ListProduct>;
+    } break;
+    case LogicalTypeID::UINT64: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, uint64_t, ListProduct>;
+    } break;
+    case LogicalTypeID::UINT32: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, uint32_t, ListProduct>;
+    } break;
+    case LogicalTypeID::UINT16: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, uint16_t, ListProduct>;
+    } break;
+    case LogicalTypeID::UINT8: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, uint8_t, ListProduct>;
+    } break;
+    case LogicalTypeID::DOUBLE: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, double_t, ListProduct>;
+    } break;
+    case LogicalTypeID::FLOAT: {
+        vectorFunctionDefinition->execFunc =
+            UnaryExecListStructFunction<list_entry_t, float_t, ListProduct>;
+    } break;
+    default: {
+        throw NotImplementedException("ListProductVectorFunction::bindFunc");
     }
     }
     return std::make_unique<FunctionBindData>(*resultType);
