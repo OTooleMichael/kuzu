@@ -171,6 +171,7 @@ protected:
     common::LogicalType dataType;
     uint32_t numBytesPerValue;
     uint64_t bufferSize;
+    uint64_t capacity;
     std::unique_ptr<uint8_t[]> buffer;
     std::unique_ptr<NullColumnChunk> nullChunk;
     std::vector<std::unique_ptr<ColumnChunk>> childrenChunks;
@@ -179,7 +180,7 @@ protected:
     std::function<ColumnChunkMetadata(const uint8_t*, uint64_t, BMFileHandle*, common::page_idx_t,
         const PreliminaryColumnChunkMetadata&)>
         flushBufferFunction;
-    std::function<PreliminaryColumnChunkMetadata(const uint8_t*, uint64_t, uint64_t)>
+    std::function<PreliminaryColumnChunkMetadata(const uint8_t*, uint64_t, uint64_t, uint64_t)>
         getMetadataFunction;
 };
 
