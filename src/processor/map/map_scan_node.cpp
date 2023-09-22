@@ -17,8 +17,17 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapScanInternalID(LogicalOperator*
         auto nodeTable = nodesStore.getNodeTable(tableID);
         sharedState->addTableState(nodeTable);
     }
-    return make_unique<ScanNodeID>(
+    return std::make_unique<ScanNodeID>(
         dataPos, sharedState, getOperatorID(), scan->getExpressionsForPrinting());
+}
+
+std::unique_ptr<PhysicalOperator> PlanMapper::mapFillTableID(LogicalOperator* logicalOperator) {
+    auto fill = reinterpret_cast<LogicalFillTableID*>(logicalOperator);
+    auto inSchema = fill->getChild(0)->getSchema();
+    auto prevOperator = mapOperator(logicalOperator->getChild(0).get());
+    auto internalIDPos = DataPos(inSchema->getExpressionPos(*fill->getInternalID()));
+    return std::make_unique<FillTableID>(internalIDPos, fill->getTableID(), std::move(prevOperator),
+        getOperatorID(), fill->getExpressionsForPrinting());
 }
 
 } // namespace processor

@@ -18,6 +18,14 @@ void QueryPlanner::appendScanInternalID(
     plan.setLastOperator(std::move(scan));
 }
 
+void QueryPlanner::appendFillTableID(
+    std::shared_ptr<Expression> internalID, table_id_t tableID, LogicalPlan& plan) {
+    auto fill = std::make_shared<LogicalFillTableID>(
+        std::move(internalID), tableID, plan.getLastOperator());
+    fill->computeFactorizedSchema();
+    plan.setLastOperator(std::move(fill));
+}
+
 void QueryPlanner::appendScanNodeProperties(std::shared_ptr<Expression> nodeID,
     std::vector<common::table_id_t> tableIDs, const expression_vector& properties,
     LogicalPlan& plan) {
