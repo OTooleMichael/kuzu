@@ -299,8 +299,8 @@ void ReaderFunctions::initRelParquetReadData(
     ReaderFunctionData& funcData, vector_idx_t fileIdx, const common::ReaderConfig& config) {
     assert(fileIdx < config.getNumFiles());
     funcData.fileIdx = fileIdx;
-    reinterpret_cast<RelCSVReaderFunctionData&>(funcData).reader =
-        TableCopyUtils::createRelTableCSVReader(config.filePaths[fileIdx], config);
+    reinterpret_cast<RelParquetReaderFunctionData&>(funcData).reader =
+        TableCopyUtils::createParquetReader(config.filePaths[fileIdx], config);
 }
 
 void ReaderFunctions::initNodeParquetReadData(

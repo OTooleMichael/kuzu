@@ -34,14 +34,11 @@ public:
         }
     }
 
-    //
-    //    uint64_t Read(uint64_t num_values, parquet_filter_t& filter, uint8_t* define_out,
-    //        uint8_t* repeat_out, Vector& result) override;
-    //
-    //    void Skip(uint64_t num_values) override;
-    //    uint64_t GroupRowsAvailable() override;
-    //    uint64_t TotalCompressedSize() override;
-    //    void RegisterPrefetch(ThriftFileTransport& transport, bool allow_merge) override;
+    uint64_t Read(uint64_t num_values, parquet_filter_t& filter, uint8_t* define_out,
+        uint8_t* repeat_out, common::ValueVector* result) override;
+
+    void Skip(uint64_t num_values) override;
+    uint64_t GroupRowsAvailable() override;
 };
 
 } // namespace processor

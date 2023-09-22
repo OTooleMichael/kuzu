@@ -4,6 +4,7 @@
 #include "common/exception/not_implemented.h"
 #include "common/file_utils.h"
 #include "common/string_utils.h"
+#include "processor/operator/persistent/reader/list_column_reader.h"
 #include "processor/operator/persistent/reader/thrift_tools.h"
 
 using namespace kuzu_parquet::format;
@@ -133,10 +134,8 @@ std::unique_ptr<ColumnReader> ParquetReader::createReaderRecursive(uint64_t dept
             auto varListInfo = std::make_unique<common::VarListTypeInfo>(std::move(result_type));
             result_type = std::make_unique<common::LogicalType>(
                 common::LogicalTypeID::VAR_LIST, std::move(varListInfo));
-            assert(false);
-            //            return std::make_unique<ListColumnReader>(*this, std::move(result_type),
-            //            s_ele,
-            //                this_idx, max_define, max_repeat, std::move(result));
+            return std::make_unique<ListColumnReader>(*this, std::move(result_type), s_ele,
+                this_idx, max_define, max_repeat, std::move(result));
         }
         return result;
     } else { // leaf node
@@ -701,7 +700,7 @@ bool ParquetReader::scanInternal(ParquetReaderScanState& state, common::DataChun
         }
 
         uint64_t to_scan_compressed_bytes = 0;
-        for (auto col_idx = 0u; col_idx < metadata->column_orders.size(); col_idx++) {
+        for (auto col_idx = 0u; col_idx < result.getNumValueVectors(); col_idx++) {
             prepareRowGroupBuffer(state, col_idx);
 
             auto file_col_idx = col_idx;
@@ -738,7 +737,7 @@ bool ParquetReader::scanInternal(ParquetReaderScanState& state, common::DataChun
                 bool lazy_fetch = false;
 
                 // Prefetch column-wise
-                for (auto col_idx = 0u; col_idx < metadata->column_orders.size(); col_idx++) {
+                for (auto col_idx = 0u; col_idx < result.getNumValueVectors(); col_idx++) {
                     auto file_col_idx = col_idx;
                     auto root_reader =
                         reinterpret_cast<StructColumnReader*>(state.rootReader.get());
@@ -785,7 +784,7 @@ bool ParquetReader::scanInternal(ParquetReaderScanState& state, common::DataChun
 
     auto root_reader = reinterpret_cast<StructColumnReader*>(state.rootReader.get());
 
-    for (auto col_idx = 0u; col_idx < metadata->column_orders.size(); col_idx++) {
+    for (auto col_idx = 0u; col_idx < result.getNumValueVectors(); col_idx++) {
         auto file_col_idx = col_idx;
         auto result_vector = result.getValueVector(col_idx);
         auto child_reader = root_reader->getChildReader(file_col_idx);

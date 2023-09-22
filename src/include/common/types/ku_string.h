@@ -55,8 +55,12 @@ struct ku_string_t {
 
     inline void set1(const char* value, uint64_t length) {
         this->len = length;
-        memcpy(prefix, value, PREFIX_LENGTH);
-        overflowPtr = reinterpret_cast<uint64_t>(value);
+        if (isShortString(length)) {
+            setShortString(value, length);
+        } else {
+            memcpy(prefix, value, PREFIX_LENGTH);
+            overflowPtr = reinterpret_cast<uint64_t>(value);
+        }
     }
 
     std::string getAsShortString() const;

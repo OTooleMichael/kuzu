@@ -45,6 +45,8 @@ public:
         }
     }
 
+    virtual void Skip(uint64_t num_values) { pending_skips += num_values; }
+
     virtual uint64_t FileOffset() const {
         if (!chunk) {
             throw std::runtime_error("FileOffset called on ColumnReader with no chunk");

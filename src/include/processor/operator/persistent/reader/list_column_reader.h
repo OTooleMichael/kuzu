@@ -17,10 +17,10 @@ public:
         uint64_t max_define_p, uint64_t max_repeat_p,
         std::unique_ptr<ColumnReader> child_column_reader_p);
 
-    //    uint64_t Read(uint64_t num_values, parquet_filter_t& filter, uint8_t* define_out,
-    //        uint8_t* repeat_out, common::ValueVector* result_out) override;
-    //
-    //    void ApplyPendingSkips(uint64_t num_values) override;
+    uint64_t Read(uint64_t num_values, parquet_filter_t& filter, uint8_t* define_out,
+        uint8_t* repeat_out, common::ValueVector* result_out) override;
+
+    void ApplyPendingSkips(uint64_t num_values) override;
 
     void InitializeRead(uint64_t row_group_idx_p,
         const std::vector<kuzu_parquet::format::ColumnChunk>& columns,
@@ -44,9 +44,6 @@ private:
     ResizeableBuffer child_repeats;
     uint8_t* child_defines_ptr;
     uint8_t* child_repeats_ptr;
-
-    // VectorCache read_cache;
-    // std::unique_ptr<common::ValueVector> read_vector;
 
     parquet_filter_t child_filter;
 
