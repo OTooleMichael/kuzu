@@ -24,7 +24,7 @@ struct ParquetReaderScanState {
     uint64_t group_offset;
     std::unique_ptr<common::FileInfo> fileInfo;
     std::unique_ptr<ColumnReader> rootReader;
-    std::unique_ptr<apache::thrift::protocol::TProtocol> thriftFileProto;
+    std::unique_ptr<kuzu_apache::thrift::protocol::TProtocol> thriftFileProto;
 
     bool finished;
 
@@ -43,7 +43,7 @@ public:
     std::string filePath;
     //    std::vector<common::LogicalType> return_types;
     //    std::vector<std::string> names;
-    std::unique_ptr<parquet::format::FileMetaData> metadata;
+    std::unique_ptr<kuzu_parquet::format::FileMetaData> metadata;
     // std::unique_ptr<ColumnReader> root_reader;
 
 public:
@@ -52,11 +52,19 @@ public:
     //
     //    unique_ptr<BaseStatistics> ReadStatistics(const std::string& name);
     static std::unique_ptr<common::LogicalType> deriveLogicalType(
-        const parquet::format::SchemaElement& s_ele);
+        const kuzu_parquet::format::SchemaElement& s_ele);
     //
     //    FileHandle& GetHandle() { return *file_handle; }
     //
     //    const std::string& GetFileName() { return filePath; }
+
+    void scan(ParquetReaderScanState& state, common::DataChunk& result) {
+        while (scanInternal(state, result)) {
+            if (result.state->selVector->selectedSize > 0) {
+                break;
+            }
+        }
+    }
 
 private:
     // void InitializeSchema();
@@ -72,9 +80,10 @@ private:
     //    void PrepareRowGroupBuffer(ParquetReaderScanState& state, common::column_id_t
     //    out_col_idx);
 
-    inline std::unique_ptr<apache::thrift::protocol::TProtocol> createThriftProtocol(
+    inline std::unique_ptr<kuzu_apache::thrift::protocol::TProtocol> createThriftProtocol(
         common::FileInfo* fileInfo_, bool prefetch_mode) {
-        return std::make_unique<apache::thrift::protocol::TCompactProtocolT<ThriftFileTransport>>(
+        return std::make_unique<
+            kuzu_apache::thrift::protocol::TCompactProtocolT<ThriftFileTransport>>(
             std::make_shared<ThriftFileTransport>(fileInfo_, prefetch_mode));
     }
 
@@ -87,7 +96,7 @@ private:
 
     void prepareRowGroupBuffer(ParquetReaderScanState& state, uint64_t col_idx);
 
-    const parquet::format::RowGroup& getGroup(ParquetReaderScanState& state) {
+    const kuzu_parquet::format::RowGroup& getGroup(ParquetReaderScanState& state) {
         assert(
             state.current_group >= 0 && (int64_t)state.current_group < state.group_idx_list.size());
         assert(state.group_idx_list[state.current_group] >= 0 &&

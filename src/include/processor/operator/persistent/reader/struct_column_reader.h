@@ -13,7 +13,7 @@ public:
 
 public:
     StructColumnReader(ParquetReader& reader, std::unique_ptr<common::LogicalType> type_p,
-        const parquet::format::SchemaElement& schema_p, uint64_t schema_idx_p,
+        const kuzu_parquet::format::SchemaElement& schema_p, uint64_t schema_idx_p,
         uint64_t max_define_p, uint64_t max_repeat_p,
         std::vector<std::unique_ptr<ColumnReader>> child_readers_p);
 
@@ -23,8 +23,8 @@ public:
     ColumnReader* getChildReader(uint64_t child_idx);
 
     void InitializeRead(uint64_t row_group_idx_p,
-        const std::vector<parquet::format::ColumnChunk>& columns,
-        apache::thrift::protocol::TProtocol& protocol_p) override;
+        const std::vector<kuzu_parquet::format::ColumnChunk>& columns,
+        kuzu_apache::thrift::protocol::TProtocol& protocol_p) override;
 
     uint64_t TotalCompressedSize() override;
 

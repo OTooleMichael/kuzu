@@ -195,6 +195,7 @@ expression_vector Binder::bindExpectedNodeFileColumns(
             columns.push_back(createVariable(columnName, stringType));
         }
     } break;
+    case common::FileType::PARQUET:
     case common::FileType::CSV: {
         for (auto& property : tableSchema->properties) {
             if (skipPropertyInFile(*property)) {
@@ -205,8 +206,7 @@ expression_vector Binder::bindExpectedNodeFileColumns(
             columns.push_back(createVariable(property->getName(), *property->getDataType()));
         }
     } break;
-    case common::FileType::NPY:
-    case common::FileType::PARQUET: {
+    case common::FileType::NPY: {
         for (auto& property : tableSchema->properties) {
             if (skipPropertyInFile(*property)) {
                 continue;

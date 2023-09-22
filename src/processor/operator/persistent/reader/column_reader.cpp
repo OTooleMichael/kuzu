@@ -1,43 +1,54 @@
 #include "processor/operator/persistent/reader/column_reader.h"
 
 #include "common/exception/not_implemented.h"
+#include "common/types/blob.h"
+#include "common/types/date_t.h"
+#include "processor/operator/persistent/reader/boolean_column_reader.h"
+#include "processor/operator/persistent/reader/callback_column_reader.h"
+#include "processor/operator/persistent/reader/list_column_reader.h"
+#include "processor/operator/persistent/reader/string_column_reader.h"
 #include "processor/operator/persistent/reader/struct_column_reader.h"
 #include "processor/operator/persistent/reader/templated_column_reader.h"
+#include "snappy/snappy.h"
+#include "utf8proc_wrapper.h"
 
 namespace kuzu {
 namespace processor {
 
-using parquet::format::CompressionCodec;
-using parquet::format::ConvertedType;
-using parquet::format::Encoding;
-using parquet::format::PageType;
-using parquet::format::Type;
+using kuzu_parquet::format::CompressionCodec;
+using kuzu_parquet::format::ConvertedType;
+using kuzu_parquet::format::Encoding;
+using kuzu_parquet::format::PageType;
+using kuzu_parquet::format::Type;
+
+static common::date_t ParquetIntToDate(const int32_t& raw_date) {
+    return common::date_t(raw_date);
+}
 
 ColumnReader::ColumnReader(ParquetReader& reader, std::unique_ptr<common::LogicalType> type,
-    const parquet::format::SchemaElement& schema, uint64_t fileIdx, uint64_t maxDefinition,
+    const kuzu_parquet::format::SchemaElement& schema, uint64_t fileIdx, uint64_t maxDefinition,
     uint64_t maxRepeat)
     : schema{schema}, file_idx{fileIdx}, max_define{maxDefinition},
       max_repeat{maxRepeat}, reader{reader}, type{std::move(type)}, page_rows_available{0} {}
 
 std::unique_ptr<ColumnReader> ColumnReader::createReader(ParquetReader& reader,
-    std::unique_ptr<common::LogicalType> type, const parquet::format::SchemaElement& schema,
+    std::unique_ptr<common::LogicalType> type, const kuzu_parquet::format::SchemaElement& schema,
     uint64_t fileIdx, uint64_t maxDefine, uint64_t maxRepeat) {
     switch (type->getLogicalTypeID()) {
     case common::LogicalTypeID::BOOL:
-        assert(false);
-        // return make_uniq<BooleanColumnReader>(reader, type, schema, fileIdx, maxDefine,
-        // maxRepeat);
-    case common::LogicalTypeID::INT16:
-        return std::make_unique<
-            TemplatedColumnReader<int8_t, TemplatedParquetValueConversion<int32_t>>>(
+        return std::make_unique<BooleanColumnReader>(
             reader, std::move(type), schema, fileIdx, maxDefine, maxRepeat);
-    case common::LogicalTypeID::INT32:
+    case common::LogicalTypeID::INT16:
         return std::make_unique<
             TemplatedColumnReader<int16_t, TemplatedParquetValueConversion<int32_t>>>(
             reader, std::move(type), schema, fileIdx, maxDefine, maxRepeat);
-    case common::LogicalTypeID::INT64:
+    case common::LogicalTypeID::INT32:
         return std::make_unique<
             TemplatedColumnReader<int32_t, TemplatedParquetValueConversion<int32_t>>>(
+            reader, std::move(type), schema, fileIdx, maxDefine, maxRepeat);
+    case common::LogicalTypeID::INT64:
+        return std::make_unique<
+            TemplatedColumnReader<int64_t, TemplatedParquetValueConversion<int64_t>>>(
             reader, std::move(type), schema, fileIdx, maxDefine, maxRepeat);
     case common::LogicalTypeID::FLOAT:
         return std::make_unique<
@@ -48,21 +59,19 @@ std::unique_ptr<ColumnReader> ColumnReader::createReader(ParquetReader& reader,
             TemplatedColumnReader<double, TemplatedParquetValueConversion<double>>>(
             reader, std::move(type), schema, fileIdx, maxDefine, maxRepeat);
     case common::LogicalTypeID::DATE:
-        assert(false);
-        //        return std::make_unique<CallbackColumnReader<int32_t, date_t, ParquetIntToDate>>(
-        //            reader, type, schema, fileIdx, maxDefine, maxRepeat);
+        return std::make_unique<CallbackColumnReader<int32_t, common::date_t, ParquetIntToDate>>(
+            reader, std::move(type), schema, fileIdx, maxDefine, maxRepeat);
     case common::LogicalTypeID::STRING:
-        assert(false);
-        //        return std::make_unique<StringColumnReader>(
-        //            reader, type, schema, fileIdx, maxDefine, maxRepeat);
+        return std::make_unique<StringColumnReader>(
+            reader, std::move(type), schema, fileIdx, maxDefine, maxRepeat);
     default:
         throw common::NotImplementedException{"ColumnReader::createReader"};
     }
 }
 
 void ColumnReader::InitializeRead(uint64_t row_group_idx_p,
-    const std::vector<parquet::format::ColumnChunk>& columns,
-    apache::thrift::protocol::TProtocol& protocol_p) {
+    const std::vector<kuzu_parquet::format::ColumnChunk>& columns,
+    kuzu_apache::thrift::protocol::TProtocol& protocol_p) {
     assert(file_idx < columns.size());
     chunk = &columns[file_idx];
     protocol = &protocol_p;
@@ -139,7 +148,6 @@ uint64_t ColumnReader::Read(uint64_t num_values, parquet_filter_t& filter, uint8
         if (dict_decoder) {
             offset_buffer.resize(sizeof(uint32_t) * (read_now - null_count));
             dict_decoder->GetBatch<uint32_t>(offset_buffer.ptr, read_now - null_count);
-            DictReference(result);
             Offsets(reinterpret_cast<uint32_t*>(offset_buffer.ptr), define_out, read_now, filter,
                 result_offset, result);
         } else if (dbp_decoder) {
@@ -150,13 +158,11 @@ uint64_t ColumnReader::Read(uint64_t num_values, parquet_filter_t& filter, uint8
             case common::PhysicalTypeID::INT32:
                 read_buf->resize(sizeof(int32_t) * (read_now - null_count));
                 dbp_decoder->GetBatch<int32_t>(read_buf->ptr, read_now - null_count);
-
                 break;
             case common::PhysicalTypeID::INT64:
                 read_buf->resize(sizeof(int64_t) * (read_now - null_count));
                 dbp_decoder->GetBatch<int64_t>(read_buf->ptr, read_now - null_count);
                 break;
-
             default:
                 throw std::runtime_error("DELTA_BINARY_PACKED should only be INT32 or INT64");
             }
@@ -175,7 +181,6 @@ uint64_t ColumnReader::Read(uint64_t num_values, parquet_filter_t& filter, uint8
             assert(false);
             // DeltaByteArray(define_out, read_now, filter, result_offset, result);
         } else {
-            PlainReference(block, result);
             Plain(block, define_out, read_now, filter, result_offset, result);
         }
 
@@ -189,7 +194,7 @@ uint64_t ColumnReader::Read(uint64_t num_values, parquet_filter_t& filter, uint8
     return num_values;
 }
 
-void ColumnReader::PrepareDataPage(parquet::format::PageHeader& page_hdr) {
+void ColumnReader::PrepareDataPage(kuzu_parquet::format::PageHeader& page_hdr) {
     if (page_hdr.type == PageType::DATA_PAGE && !page_hdr.__isset.data_page_header) {
         throw std::runtime_error("Missing data page header from data page");
     }
@@ -269,7 +274,7 @@ void ColumnReader::PrepareDataPage(parquet::format::PageHeader& page_hdr) {
     }
 }
 
-void ColumnReader::PreparePage(parquet::format::PageHeader& page_hdr) {
+void ColumnReader::PreparePage(kuzu_parquet::format::PageHeader& page_hdr) {
     auto& trans = reinterpret_cast<ThriftFileTransport&>(*protocol->getTransport());
 
     AllocateBlock(page_hdr.uncompressed_page_size + 1);
@@ -292,7 +297,7 @@ void ColumnReader::PrepareRead(parquet_filter_t& filter) {
     dict_decoder.reset();
     defined_decoder.reset();
     block.reset();
-    parquet::format::PageHeader page_hdr;
+    kuzu_parquet::format::PageHeader page_hdr;
     page_hdr.read(protocol);
 
     switch (page_hdr.type) {
@@ -326,7 +331,7 @@ void ColumnReader::AllocateCompressed(uint64_t size) {
     compressed_buffer.resize(size);
 }
 
-void ColumnReader::PreparePageV2(parquet::format::PageHeader& page_hdr) {
+void ColumnReader::PreparePageV2(kuzu_parquet::format::PageHeader& page_hdr) {
     assert(page_hdr.type == PageType::DATA_PAGE_V2);
 
     auto& trans = reinterpret_cast<ThriftFileTransport&>(*protocol->getTransport());
@@ -374,26 +379,24 @@ void ColumnReader::DecompressInternal(CompressionCodec::type codec, const uint8_
         //        break;
     }
     case CompressionCodec::SNAPPY: {
-        assert(false);
-        //        {
-        //            size_t uncompressed_size = 0;
-        //            auto res = snappy::GetUncompressedLength(
-        //                reinterpret_cast<const uint8_t*>(src), src_size, &uncompressed_size);
-        //            if (!res) {
-        //                throw std::runtime_error("Snappy decompression failure");
-        //            }
-        //            if (uncompressed_size != (size_t)dst_size) {
-        //                throw std::runtime_error(
-        //                    "Snappy decompression failure: Uncompressed data size mismatch");
-        //            }
-        //        }
-        //        auto res =
-        //            duckdb_snappy::RawUncompress(const_char_ptr_cast(src), src_size,
-        //            char_ptr_cast(dst));
-        //        if (!res) {
-        //            throw std::runtime_error("Snappy decompression failure");
-        //        }
-        //        break;
+        {
+            size_t uncompressed_size = 0;
+            auto res = kuzu_snappy::GetUncompressedLength(
+                reinterpret_cast<const char*>(src), src_size, &uncompressed_size);
+            if (!res) {
+                throw std::runtime_error("Snappy decompression failure");
+            }
+            if (uncompressed_size != (size_t)dst_size) {
+                throw std::runtime_error(
+                    "Snappy decompression failure: Uncompressed data size mismatch");
+            }
+        }
+        auto res = kuzu_snappy::RawUncompress(
+            reinterpret_cast<const char*>(src), src_size, reinterpret_cast<char*>(dst));
+        if (!res) {
+            throw std::runtime_error("Snappy decompression failure");
+        }
+        break;
     }
     case CompressionCodec::ZSTD: {
         assert(false);
@@ -419,13 +422,14 @@ void ColumnReader::ApplyPendingSkips(uint64_t num_values) {
     dummy_repeat.zero();
 
     // TODO this can be optimized, for example we dont actually have to bitunpack offsets
-    auto dummy_result = std::make_unique<common::ValueVector>(*type);
+    std::unique_ptr<common::ValueVector> dummy_result =
+        std::make_unique<common::ValueVector>(*type->copy());
 
     uint64_t remaining = num_values;
     uint64_t read = 0;
 
     while (remaining) {
-        uint64_t to_read = std::min<uint64_t>(remaining, common::DEFAULT_VECTOR_CAPACITY);
+        auto to_read = std::min<uint64_t>(remaining, common::DEFAULT_VECTOR_CAPACITY);
         read += Read(to_read, none_filter, dummy_define.ptr, dummy_repeat.ptr, dummy_result.get());
         remaining -= to_read;
     }
@@ -436,8 +440,9 @@ void ColumnReader::ApplyPendingSkips(uint64_t num_values) {
 }
 
 StructColumnReader::StructColumnReader(ParquetReader& reader,
-    std::unique_ptr<common::LogicalType> type_p, const parquet::format::SchemaElement& schema_p,
-    uint64_t schema_idx_p, uint64_t max_define_p, uint64_t max_repeat_p,
+    std::unique_ptr<common::LogicalType> type_p,
+    const kuzu_parquet::format::SchemaElement& schema_p, uint64_t schema_idx_p,
+    uint64_t max_define_p, uint64_t max_repeat_p,
     std::vector<std::unique_ptr<ColumnReader>> child_readers_p)
     : ColumnReader(reader, std::move(type_p), schema_p, schema_idx_p, max_define_p, max_repeat_p),
       child_readers(std::move(child_readers_p)) {
@@ -450,8 +455,8 @@ ColumnReader* StructColumnReader::getChildReader(uint64_t child_idx) {
 }
 
 void StructColumnReader::InitializeRead(uint64_t row_group_idx_p,
-    const std::vector<parquet::format::ColumnChunk>& columns,
-    apache::thrift::protocol::TProtocol& protocol_p) {
+    const std::vector<kuzu_parquet::format::ColumnChunk>& columns,
+    kuzu_apache::thrift::protocol::TProtocol& protocol_p) {
     for (auto& child : child_readers) {
         child->InitializeRead(row_group_idx_p, columns, protocol_p);
     }
@@ -480,6 +485,227 @@ const uint64_t ParquetDecodeUtils::BITPACK_MASKS_SIZE =
     sizeof(ParquetDecodeUtils::BITPACK_MASKS) / sizeof(uint64_t);
 
 const uint8_t ParquetDecodeUtils::BITPACK_DLEN = 8;
+
+StringColumnReader::StringColumnReader(ParquetReader& reader,
+    std::unique_ptr<common::LogicalType> type_p,
+    const kuzu_parquet::format::SchemaElement& schema_p, uint64_t schema_idx_p,
+    uint64_t max_define_p, uint64_t max_repeat_p)
+    : TemplatedColumnReader<common::ku_string_t, StringParquetValueConversion>(
+          reader, std::move(type_p), schema_p, schema_idx_p, max_define_p, max_repeat_p) {
+    fixed_width_string_length = 0;
+    if (schema_p.type == Type::FIXED_LEN_BYTE_ARRAY) {
+        assert(schema_p.__isset.type_length);
+        fixed_width_string_length = schema_p.type_length;
+    }
+}
+
+uint32_t StringColumnReader::VerifyString(
+    const char* str_data, uint32_t str_len, const bool is_varchar) {
+    if (!is_varchar) {
+        return str_len;
+    }
+    // verify if a string is actually UTF8, and if there are no null bytes in the middle of the
+    // string technically Parquet should guarantee this, but reality is often disappointing
+    utf8proc::UnicodeInvalidReason reason;
+    size_t pos;
+    auto utf_type = utf8proc::Utf8Proc::analyze(str_data, str_len, &reason, &pos);
+    if (utf_type == utf8proc::UnicodeType::INVALID) {
+        throw common::CopyException{
+            "Invalid string encoding found in Parquet file: value \"" +
+            common::Blob::toString(reinterpret_cast<const uint8_t*>(str_data), str_len) +
+            "\" is not valid UTF8!"};
+    }
+    return str_len;
+}
+
+uint32_t StringColumnReader::VerifyString(const char* str_data, uint32_t str_len) {
+    return VerifyString(
+        str_data, str_len, Type()->getLogicalTypeID() == common::LogicalTypeID::STRING);
+}
+
+void StringColumnReader::Dictionary(std::shared_ptr<ResizeableBuffer> data, uint64_t num_entries) {
+    dict = std::move(data);
+    dict_strings = std::unique_ptr<common::ku_string_t[]>(new common::ku_string_t[num_entries]);
+    for (auto dict_idx = 0u; dict_idx < num_entries; dict_idx++) {
+        uint32_t str_len;
+        if (fixed_width_string_length == 0) {
+            // variable length string: read from dictionary
+            str_len = dict->read<uint32_t>();
+        } else {
+            // fixed length string
+            str_len = fixed_width_string_length;
+        }
+        dict->available(str_len);
+
+        auto dict_str = reinterpret_cast<const char*>(dict->ptr);
+        auto actual_str_len = VerifyString(dict_str, str_len);
+        dict_strings[dict_idx].set1(dict_str, actual_str_len);
+        dict->inc(str_len);
+    }
+}
+
+static std::shared_ptr<ResizeableBuffer> ReadDbpData(
+    ResizeableBuffer& buffer, uint64_t& value_count) {
+    auto decoder = std::make_unique<DbpDecoder>(buffer.ptr, buffer.len);
+    value_count = decoder->TotalValues();
+    auto result = std::make_shared<ResizeableBuffer>();
+    result->resize(sizeof(uint32_t) * value_count);
+    decoder->GetBatch<uint32_t>(result->ptr, value_count);
+    decoder->Finalize();
+    buffer.inc(buffer.len - decoder->BufferPtr().len);
+    return result;
+}
+
+// void StringColumnReader::PrepareDeltaLengthByteArray(ResizeableBuffer& buffer) {
+//    uint64_t value_count;
+//    auto length_buffer = ReadDbpData(buffer, value_count);
+//    if (value_count == 0) {
+//        // no values
+//        byte_array_data =
+//            std::make_unique<common::ValueVector>(common::LogicalTypeID::STRING, nullptr);
+//        return;
+//    }
+//    auto length_data = reinterpret_cast<uint32_t*>(length_buffer->ptr);
+//    byte_array_data =
+//        std::make_unique<common::ValueVector>(common::LogicalTypeID::STRING, value_count);
+//    byte_array_count = value_count;
+//    delta_offset = 0;
+//    auto string_data = reinterpret_cast<common::ku_string_t*>(byte_array_data->getData());
+//    for (idx_t i = 0; i < value_count; i++) {
+//        auto str_len = length_data[i];
+//        string_data[i] = StringVector::EmptyString(*byte_array_data, str_len);
+//        auto result_data = string_data[i].GetDataWriteable();
+//        memcpy(result_data, buffer.ptr, length_data[i]);
+//        buffer.inc(length_data[i]);
+//        string_data[i].Finalize();
+//    }
+//}
+//
+// void StringColumnReader::PrepareDeltaByteArray(ResizeableBuffer& buffer) {
+//    uint64_t prefix_count, suffix_count;
+//    auto prefix_buffer = ReadDbpData(buffer, prefix_count);
+//    auto suffix_buffer = ReadDbpData(buffer, suffix_count);
+//    if (prefix_count != suffix_count) {
+//        throw std::runtime_error(
+//            "DELTA_BYTE_ARRAY - prefix and suffix counts are different - corrupt file?");
+//    }
+//    if (prefix_count == 0) {
+//        // no values
+//        byte_array_data = make_uniq<Vector>(LogicalType::VARCHAR, nullptr);
+//        return;
+//    }
+//    auto prefix_data = reinterpret_cast<uint32_t*>(prefix_buffer->ptr);
+//    auto suffix_data = reinterpret_cast<uint32_t*>(suffix_buffer->ptr);
+//    byte_array_data = make_uniq<Vector>(LogicalType::VARCHAR, prefix_count);
+//    byte_array_count = prefix_count;
+//    delta_offset = 0;
+//    auto string_data = reinterpret_cast<common::ku_string_t*>(byte_array_data->getData());
+//    for (auto i = 0u; i < prefix_count; i++) {
+//        auto str_len = prefix_data[i] + suffix_data[i];
+//        string_data[i] = StringVector::EmptyString(*byte_array_data, str_len);
+//        auto result_data = string_data[i].GetDataWriteable();
+//        if (prefix_data[i] > 0) {
+//            if (i == 0 || prefix_data[i] > string_data[i - 1].len) {
+//                throw std::runtime_error(
+//                    "DELTA_BYTE_ARRAY - prefix is out of range - corrupt file?");
+//            }
+//            memcpy(result_data, string_data[i - 1].getData(), prefix_data[i]);
+//        }
+//        memcpy(result_data + prefix_data[i], buffer.ptr, suffix_data[i]);
+//        buffer.inc(suffix_data[i]);
+//        string_data[i].Finalize();
+//    }
+//}
+//
+// void StringColumnReader::DeltaByteArray(uint8_t* defines, uint64_t num_values,
+//    parquet_filter_t& filter, uint64_t result_offset, common::ValueVector* result) {
+//    if (!byte_array_data) {
+//        throw std::runtime_error(
+//            "Internal error - DeltaByteArray called but there was no byte_array_data set");
+//    }
+//    auto result_ptr = reinterpret_cast<common::ku_string_t*>(result->getData());
+//    auto string_data = reinterpret_cast<common::ku_string_t*>(byte_array_data->getData());
+//    for (auto row_idx = 0u; row_idx < num_values; row_idx++) {
+//        if (HasDefines() && defines[row_idx + result_offset] != max_define) {
+//            result->setNull(row_idx + result_offset, true);
+//            continue;
+//        }
+//        if (filter[row_idx + result_offset]) {
+//            if (delta_offset >= byte_array_count) {
+//                throw common::CopyException{common::StringUtils::string_format(
+//                    "DELTA_BYTE_ARRAY - length mismatch between values and byte "
+//                    "array lengths (attempted "
+//                    "read of {} from {} entries) - corrupt file?",
+//                    delta_offset + 1, byte_array_count)};
+//            }
+//            result_ptr[row_idx + result_offset] = string_data[delta_offset++];
+//        } else {
+//            delta_offset++;
+//        }
+//    }
+//    StringVector::AddHeapReference(result, *byte_array_data);
+//}
+
+// class ParquetStringVectorBuffer : public VectorBuffer {
+// public:
+//    explicit ParquetStringVectorBuffer(std::shared_ptr<ByteBuffer> buffer_p)
+//        : VectorBuffer(VectorBufferType::OPAQUE_BUFFER), buffer(std::move(buffer_p)) {}
+//
+// private:
+//    std::shared_ptr<ByteBuffer> buffer;
+//};
+
+// void StringColumnReader::PlainReference(
+//    std::shared_ptr<ByteBuffer> plain_data, common::ValueVector* result) {
+//    StringVector::AddBuffer(result,
+//    make_buffer<ParquetStringVectorBuffer>(std::move(plain_data)));
+//}
+
+common::ku_string_t StringParquetValueConversion::DictRead(
+    ByteBuffer& dict, uint32_t& offset, ColumnReader& reader) {
+    auto& dict_strings = reinterpret_cast<StringColumnReader&>(reader).dict_strings;
+    return dict_strings[offset];
+}
+
+common::ku_string_t StringParquetValueConversion::PlainRead(
+    ByteBuffer& plain_data, ColumnReader& reader) {
+    auto& scr = reinterpret_cast<StringColumnReader&>(reader);
+    uint32_t str_len = scr.fixed_width_string_length == 0 ? plain_data.read<uint32_t>() :
+                                                            scr.fixed_width_string_length;
+    plain_data.available(str_len);
+    auto plain_str = reinterpret_cast<char*>(plain_data.ptr);
+    auto actual_str_len =
+        reinterpret_cast<StringColumnReader&>(reader).VerifyString(plain_str, str_len);
+    auto ret_str = common::ku_string_t();
+    ret_str.set(plain_str, actual_str_len);
+    plain_data.inc(str_len);
+    return ret_str;
+}
+
+void StringParquetValueConversion::PlainSkip(ByteBuffer& plain_data, ColumnReader& reader) {
+    auto& scr = reinterpret_cast<StringColumnReader&>(reader);
+    uint32_t str_len = scr.fixed_width_string_length == 0 ? plain_data.read<uint32_t>() :
+                                                            scr.fixed_width_string_length;
+    plain_data.inc(str_len);
+}
+
+ListColumnReader::ListColumnReader(ParquetReader& reader,
+    std::unique_ptr<common::LogicalType> type_p,
+    const kuzu_parquet::format::SchemaElement& schema_p, uint64_t schema_idx_p,
+    uint64_t max_define_p, uint64_t max_repeat_p,
+    std::unique_ptr<ColumnReader> child_column_reader_p)
+    : ColumnReader(reader, std::move(type_p), schema_p, schema_idx_p, max_define_p, max_repeat_p),
+      child_column_reader(std::move(child_column_reader_p)),
+//      read_cache(common::VarListType::getChildType(type.get())), read_vector(read_cache),
+      overflow_child_count(0) {
+
+    child_defines.resize(common::DEFAULT_VECTOR_CAPACITY);
+    child_repeats.resize(common::DEFAULT_VECTOR_CAPACITY);
+    child_defines_ptr = (uint8_t*)child_defines.ptr;
+    child_repeats_ptr = (uint8_t*)child_repeats.ptr;
+
+    child_filter.set();
+}
 
 } // namespace processor
 } // namespace kuzu

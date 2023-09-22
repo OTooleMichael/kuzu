@@ -766,7 +766,7 @@ public:
 };
 
 TEST_F(TinySnbDDLTest1, RenamePropertyRecovery) {
-
+    printf("%s", conn->query("match (t:test) return *")->toString().c_str());
 }
 
 } // namespace testing

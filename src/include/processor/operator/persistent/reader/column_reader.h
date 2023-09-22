@@ -20,20 +20,23 @@ typedef std::bitset<common::DEFAULT_VECTOR_CAPACITY> parquet_filter_t;
 class ColumnReader {
 public:
     ColumnReader(ParquetReader& reader, std::unique_ptr<common::LogicalType> type,
-        const parquet::format::SchemaElement& schema, uint64_t fileIdx, uint64_t maxDefinition,
+        const kuzu_parquet::format::SchemaElement& schema, uint64_t fileIdx, uint64_t maxDefinition,
         uint64_t maxRepeat);
 
     static std::unique_ptr<ColumnReader> createReader(ParquetReader& reader,
-        std::unique_ptr<common::LogicalType> type, const parquet::format::SchemaElement& schema,
-        uint64_t fileIdx, uint64_t maxDefine, uint64_t maxRepeat);
+        std::unique_ptr<common::LogicalType> type,
+        const kuzu_parquet::format::SchemaElement& schema, uint64_t fileIdx, uint64_t maxDefine,
+        uint64_t maxRepeat);
 
     inline common::LogicalType* getDataType() const { return type.get(); }
 
     virtual void InitializeRead(uint64_t row_group_index,
-        const std::vector<parquet::format::ColumnChunk>& columns,
-        apache::thrift::protocol::TProtocol& protocol_p);
+        const std::vector<kuzu_parquet::format::ColumnChunk>& columns,
+        kuzu_apache::thrift::protocol::TProtocol& protocol_p);
 
     virtual uint64_t TotalCompressedSize();
+
+    virtual uint64_t GroupRowsAvailable() { return group_rows_available; }
 
     virtual void RegisterPrefetch(ThriftFileTransport& transport, bool allow_merge) {
         if (chunk) {
@@ -58,7 +61,7 @@ public:
         return min_offset;
     }
 
-    void ApplyPendingSkips(uint64_t num_values);
+    virtual void ApplyPendingSkips(uint64_t num_values);
 
     virtual uint64_t Read(uint64_t num_values, parquet_filter_t& filter, uint8_t* define_out,
         uint8_t* repeat_out, common::ValueVector* result_out);
@@ -80,9 +83,6 @@ public:
 
     bool HasRepeats() { return max_repeat > 0; }
 
-    virtual void DictReference(common::ValueVector* result) {}
-    virtual void PlainReference(std::shared_ptr<ByteBuffer>, common::ValueVector*& result) {}
-
     template<class VALUE_TYPE, class CONVERSION>
     void PlainTemplated(std::shared_ptr<ByteBuffer> plain_data, uint8_t* defines,
         uint64_t num_values, parquet_filter_t& filter, uint64_t result_offset,
@@ -95,7 +95,7 @@ public:
             }
             if (filter[row_idx + result_offset]) {
                 VALUE_TYPE val = CONVERSION::PlainRead(*plain_data, *this);
-                result_ptr[row_idx + result_offset] = val;
+                result->setValue(row_idx + result_offset, val);
             } else { // there is still some data there that we have to skip over
                 CONVERSION::PlainSkip(*plain_data, *this);
             }
@@ -105,11 +105,11 @@ public:
     void AllocateBlock(uint64_t size);
     void AllocateCompressed(uint64_t size);
 
-    void DecompressInternal(parquet::format::CompressionCodec::type codec, const uint8_t* src,
+    void DecompressInternal(kuzu_parquet::format::CompressionCodec::type codec, const uint8_t* src,
         uint64_t src_size, uint8_t* dst, uint64_t dst_size);
-    void PreparePageV2(parquet::format::PageHeader& page_hdr);
-    void PreparePage(parquet::format::PageHeader& page_hdr);
-    void PrepareDataPage(parquet::format::PageHeader& page_hdr);
+    void PreparePageV2(kuzu_parquet::format::PageHeader& page_hdr);
+    void PreparePage(kuzu_parquet::format::PageHeader& page_hdr);
+    void PrepareDataPage(kuzu_parquet::format::PageHeader& page_hdr);
 
     virtual void Dictionary(std::shared_ptr<ResizeableBuffer> data, uint64_t num_entries) {
         throw common::NotImplementedException{"Dictionary"};
@@ -117,8 +117,10 @@ public:
 
     virtual void ResetPage() {}
 
+    const common::LogicalType* Type() const { return type.get(); }
+
 protected:
-    const parquet::format::SchemaElement& schema;
+    const kuzu_parquet::format::SchemaElement& schema;
 
     uint64_t file_idx;
     uint64_t max_define;
@@ -130,9 +132,9 @@ protected:
 
     uint64_t pending_skips = 0;
 
-    const parquet::format::ColumnChunk* chunk = nullptr;
+    const kuzu_parquet::format::ColumnChunk* chunk = nullptr;
 
-    apache::thrift::protocol::TProtocol* protocol;
+    kuzu_apache::thrift::protocol::TProtocol* protocol;
     uint64_t page_rows_available;
     uint group_rows_available;
     uint64_t chunk_read_offset;

@@ -38,7 +38,14 @@ count_blocks_func_t ReaderFunctions::getCountBlocksFunc(FileType fileType, Table
         }
     }
     case FileType::PARQUET: {
-        return countRowsInParquetFile;
+        switch (tableType) {
+        case TableType::NODE:
+            return countRowsInNodeParquetFile;
+        case TableType::REL:
+            return countRowsInRelParquetFile;
+        default:
+            throw NotImplementedException{"ReaderFunctions::getCountBlocksFunc"};
+        }
     }
     case FileType::NPY: {
         return countRowsInNPYFile;
@@ -65,7 +72,14 @@ init_reader_data_func_t ReaderFunctions::getInitDataFunc(FileType fileType, Tabl
         }
     }
     case FileType::PARQUET: {
-        return initParquetReadData;
+        switch (tableType) {
+        case TableType::NODE:
+            return initNodeParquetReadData;
+        case TableType::REL:
+            return initRelParquetReadData;
+        default:
+            throw NotImplementedException{"ReaderFunctions::getInitDataFunc"};
+        }
     }
     case FileType::NPY: {
         return initNPYReadData;
@@ -92,7 +106,14 @@ read_rows_func_t ReaderFunctions::getReadRowsFunc(FileType fileType, common::Tab
         }
     }
     case FileType::PARQUET: {
-        return readRowsFromParquetFile;
+        switch (tableType) {
+        case TableType::NODE:
+            return readRowsFromNodeParquetFile;
+        case TableType::REL:
+            return readRowsFromRelParquetFile;
+        default:
+            throw NotImplementedException{"ReaderFunctions::getReadRowsFunc"};
+        }
     }
     case FileType::NPY: {
         return readRowsFromNPYFile;
@@ -120,7 +141,14 @@ std::shared_ptr<ReaderFunctionData> ReaderFunctions::getReadFuncData(
         }
     }
     case FileType::PARQUET: {
-        return std::make_shared<ParquetReaderFunctionData>();
+        switch (tableType) {
+        case TableType::NODE:
+            return std::make_shared<NodeParquetReaderFunctionData>();
+        case TableType::REL:
+            return std::make_shared<RelParquetReaderFunctionData>();
+        default:
+            throw NotImplementedException{"ReaderFunctions::getReadFuncData"};
+        }
     }
     case FileType::NPY: {
         return std::make_shared<NPYReaderFunctionData>();
@@ -188,7 +216,22 @@ std::vector<FileBlocksInfo> ReaderFunctions::countRowsInNodeCSVFile(
     return fileInfos;
 }
 
-std::vector<FileBlocksInfo> ReaderFunctions::countRowsInParquetFile(
+std::vector<FileBlocksInfo> ReaderFunctions::countRowsInRelParquetFile(
+    const common::ReaderConfig& config, MemoryManager* memoryManager) {
+    std::vector<FileBlocksInfo> fileInfos;
+    fileInfos.reserve(config.getNumFiles());
+    for (const auto& path : config.filePaths) {
+        std::unique_ptr<parquet::arrow::FileReader> reader =
+            TableCopyUtils::createParquetReader(path, config);
+        auto metadata = reader->parquet_reader()->metadata();
+        FileBlocksInfo fileBlocksInfo{
+            (row_idx_t)metadata->num_rows(), (block_idx_t)metadata->num_row_groups()};
+        fileInfos.push_back(fileBlocksInfo);
+    }
+    return fileInfos;
+}
+
+std::vector<FileBlocksInfo> ReaderFunctions::countRowsInNodeParquetFile(
     const common::ReaderConfig& config, MemoryManager* memoryManager) {
     std::vector<FileBlocksInfo> fileInfos;
     fileInfos.reserve(config.filePaths.size());
@@ -252,11 +295,19 @@ void ReaderFunctions::initNodeCSVReadData(
         createBufferedCSVReader(config.filePaths[fileIdx], config);
 }
 
-void ReaderFunctions::initParquetReadData(
+void ReaderFunctions::initRelParquetReadData(
     ReaderFunctionData& funcData, vector_idx_t fileIdx, const common::ReaderConfig& config) {
     assert(fileIdx < config.getNumFiles());
     funcData.fileIdx = fileIdx;
-    reinterpret_cast<ParquetReaderFunctionData&>(funcData).reader =
+    reinterpret_cast<RelCSVReaderFunctionData&>(funcData).reader =
+        TableCopyUtils::createRelTableCSVReader(config.filePaths[fileIdx], config);
+}
+
+void ReaderFunctions::initNodeParquetReadData(
+    ReaderFunctionData& funcData, vector_idx_t fileIdx, const common::ReaderConfig& config) {
+    assert(fileIdx < config.getNumFiles());
+    funcData.fileIdx = fileIdx;
+    reinterpret_cast<NodeParquetReaderFunctionData&>(funcData).reader =
         std::make_unique<ParquetReader>(config.filePaths[fileIdx]);
 }
 
@@ -296,13 +347,32 @@ void ReaderFunctions::readRowsFromNodeCSVFile(
     readerData.reader->ParseCSV(*dataChunkToRead);
 }
 
-void ReaderFunctions::readRowsFromParquetFile(const ReaderFunctionData& functionData,
+void ReaderFunctions::readRowsFromRelParquetFile(const ReaderFunctionData& functionData,
     block_idx_t blockIdx, common::DataChunk* dataChunkToRead) {
-    auto& readerData = reinterpret_cast<const ParquetReaderFunctionData&>(functionData);
+    auto& readerData = reinterpret_cast<const RelParquetReaderFunctionData&>(functionData);
+    std::shared_ptr<arrow::Table> table;
+    TableCopyUtils::throwCopyExceptionIfNotOK(
+        readerData.reader->RowGroup(static_cast<int>(blockIdx))->ReadTable(&table));
+    assert(table);
+    for (auto i = 0u; i < dataChunkToRead->getNumValueVectors(); i++) {
+        ArrowColumnVector::setArrowColumn(
+            dataChunkToRead->getValueVector(i).get(), table->column((int)i));
+    }
+    dataChunkToRead->state->selVector->selectedSize = table->num_rows();
+}
+
+void ReaderFunctions::readRowsFromNodeParquetFile(const ReaderFunctionData& functionData,
+    block_idx_t blockIdx, common::DataChunk* dataChunkToRead) {
+    auto& readerData = reinterpret_cast<const NodeParquetReaderFunctionData&>(functionData);
     ParquetReaderScanState state;
     readerData.reader->initializeScan(state, {0});
-    readerData.reader->scanInternal(state, *dataChunkToRead);
-    dataChunkToRead->state->selVector->selectedSize = 0;
+    readerData.reader->scan(state, *dataChunkToRead);
+    auto val = dataChunkToRead->getValueVector(0);
+    auto d0 = val->getValue<int64_t>(0);
+    auto d1 = val->getValue<int64_t>(1);
+    auto d2 = val->getValue<int64_t>(2);
+    auto d3 = val->getValue<int64_t>(3);
+    auto c = 5;
 }
 
 void ReaderFunctions::readRowsFromNPYFile(const ReaderFunctionData& functionData,

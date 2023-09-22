@@ -3,6 +3,7 @@
 
 namespace kuzu {
 namespace processor {
+
 class DbpDecoder {
 public:
     DbpDecoder(uint8_t* buffer, uint32_t buffer_len) : buffer_(buffer, buffer_len) {

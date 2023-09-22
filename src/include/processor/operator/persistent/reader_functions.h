@@ -24,7 +24,11 @@ struct NodeCSVReaderFunctionData : public ReaderFunctionData {
     std::unique_ptr<BufferedCSVReader> reader = nullptr;
 };
 
-struct ParquetReaderFunctionData : public ReaderFunctionData {
+struct RelParquetReaderFunctionData : public ReaderFunctionData {
+    std::unique_ptr<parquet::arrow::FileReader> reader = nullptr;
+};
+
+struct NodeParquetReaderFunctionData : public ReaderFunctionData {
     std::unique_ptr<ParquetReader> reader = nullptr;
 };
 
@@ -74,7 +78,9 @@ struct ReaderFunctions {
         const common::ReaderConfig& config, storage::MemoryManager* memoryManager);
     static std::vector<FileBlocksInfo> countRowsInNodeCSVFile(
         const common::ReaderConfig& config, storage::MemoryManager* memoryManager);
-    static std::vector<FileBlocksInfo> countRowsInParquetFile(
+    static std::vector<FileBlocksInfo> countRowsInRelParquetFile(
+        const common::ReaderConfig& config, storage::MemoryManager* memoryManager);
+    static std::vector<FileBlocksInfo> countRowsInNodeParquetFile(
         const common::ReaderConfig& config, storage::MemoryManager* memoryManager);
     static std::vector<FileBlocksInfo> countRowsInNPYFile(
         const common::ReaderConfig& config, storage::MemoryManager* memoryManager);
@@ -85,7 +91,9 @@ struct ReaderFunctions {
         const common::ReaderConfig& config);
     static void initNodeCSVReadData(ReaderFunctionData& funcData, common::vector_idx_t fileIdx,
         const common::ReaderConfig& config);
-    static void initParquetReadData(ReaderFunctionData& funcData, common::vector_idx_t fileIdx,
+    static void initRelParquetReadData(ReaderFunctionData& funcData, common::vector_idx_t fileIdx,
+        const common::ReaderConfig& config);
+    static void initNodeParquetReadData(ReaderFunctionData& funcData, common::vector_idx_t fileIdx,
         const common::ReaderConfig& config);
     static void initNPYReadData(ReaderFunctionData& funcData, common::vector_idx_t fileIdx,
         const common::ReaderConfig& config);
@@ -96,7 +104,9 @@ struct ReaderFunctions {
         common::block_idx_t blockIdx, common::DataChunk* dataChunkToRead);
     static void readRowsFromNodeCSVFile(const ReaderFunctionData& funcData,
         common::block_idx_t blockIdx, common::DataChunk* dataChunkToRead);
-    static void readRowsFromParquetFile(const ReaderFunctionData& funcData,
+    static void readRowsFromRelParquetFile(const ReaderFunctionData& funcData,
+        common::block_idx_t blockIdx, common::DataChunk* vectorsToRead);
+    static void readRowsFromNodeParquetFile(const ReaderFunctionData& funcData,
         common::block_idx_t blockIdx, common::DataChunk* vectorsToRead);
     static void readRowsFromNPYFile(const ReaderFunctionData& funcData,
         common::block_idx_t blockIdx, common::DataChunk* vectorsToRead);

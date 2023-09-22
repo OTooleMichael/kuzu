@@ -112,7 +112,7 @@ struct ReadAheadBuffer {
 };
 
 class ThriftFileTransport
-    : public apache::thrift::transport::TVirtualTransport<ThriftFileTransport> {
+    : public kuzu_apache::thrift::transport::TVirtualTransport<ThriftFileTransport> {
 public:
     static constexpr uint64_t PREFETCH_FALLBACK_BUFFERSIZE = 1000000;
 

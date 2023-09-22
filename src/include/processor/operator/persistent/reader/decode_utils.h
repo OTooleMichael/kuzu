@@ -60,5 +60,6 @@ public:
         return result;
     }
 };
+
 } // namespace processor
 } // namespace kuzu

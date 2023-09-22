@@ -53,6 +53,12 @@ struct ku_string_t {
             value.len);
     }
 
+    inline void set1(const char* value, uint64_t length) {
+        this->len = length;
+        memcpy(prefix, value, PREFIX_LENGTH);
+        overflowPtr = reinterpret_cast<uint64_t>(value);
+    }
+
     std::string getAsShortString() const;
     std::string getAsString() const;
 

@@ -29,7 +29,7 @@ public:
 
 public:
     TemplatedColumnReader(ParquetReader& reader, std::unique_ptr<common::LogicalType> type_p,
-        const parquet::format::SchemaElement& schema_p, uint64_t schema_idx_p,
+        const kuzu_parquet::format::SchemaElement& schema_p, uint64_t schema_idx_p,
         uint64_t max_define_p, uint64_t max_repeat_p)
         : ColumnReader(
               reader, std::move(type_p), schema_p, schema_idx_p, max_define_p, max_repeat_p){};
@@ -37,22 +37,20 @@ public:
     std::shared_ptr<ResizeableBuffer> dict;
 
 public:
-    //    void AllocateDict(uint64_t size) {
-    //        if (!dict) {
-    //            dict = std::make_shared<ResizeableBuffer>(size);
-    //        } else {
-    //            dict->resize(size);
-    //        }
-    //    }
-    //
+    void AllocateDict(uint64_t size) {
+        if (!dict) {
+            dict = std::make_shared<ResizeableBuffer>(size);
+        } else {
+            dict->resize(size);
+        }
+    }
+
     //    void Dictionary(std::shared_ptr<ResizeableBuffer> data, uint64_t num_entries) override {
     //        dict = std::move(data);
     //    }
-    //
+
     void Offsets(uint32_t* offsets, uint8_t* defines, uint64_t num_values, parquet_filter_t& filter,
         uint64_t result_offset, common::ValueVector* result) override {
-        auto result_ptr = reinterpret_cast<VALUE_TYPE*>(result->getData());
-
         uint64_t offset_idx = 0;
         for (auto row_idx = 0; row_idx < num_values; row_idx++) {
             if (HasDefines() && defines[row_idx + result_offset] != max_define) {
@@ -61,7 +59,7 @@ public:
             }
             if (filter[row_idx + result_offset]) {
                 VALUE_TYPE val = VALUE_CONVERSION::DictRead(*dict, offsets[offset_idx++], *this);
-                result_ptr[row_idx + result_offset] = val;
+                result->setValue(row_idx + result_offset, val);
             } else {
                 offset_idx++;
             }

@@ -6,7 +6,7 @@
 #include "common/string_utils.h"
 #include "processor/operator/persistent/reader/thrift_tools.h"
 
-using namespace parquet::format;
+using namespace kuzu_parquet::format;
 
 namespace kuzu {
 namespace processor {
@@ -377,7 +377,7 @@ void ParquetReader::initializeScan(
 }
 
 std::unique_ptr<common::LogicalType> ParquetReader::deriveLogicalType(
-    const parquet::format::SchemaElement& s_ele) {
+    const kuzu_parquet::format::SchemaElement& s_ele) {
     // inner node
     if (s_ele.type == Type::FIXED_LEN_BYTE_ARRAY && !s_ele.__isset.type_length) {
         throw common::CopyException("FIXED_LEN_BYTE_ARRAY requires length to be set");
@@ -701,7 +701,7 @@ bool ParquetReader::scanInternal(ParquetReaderScanState& state, common::DataChun
         }
 
         uint64_t to_scan_compressed_bytes = 0;
-        for (auto col_idx = 0u; col_idx < 1; col_idx++) {
+        for (auto col_idx = 0u; col_idx < metadata->column_orders.size(); col_idx++) {
             prepareRowGroupBuffer(state, col_idx);
 
             auto file_col_idx = col_idx;
@@ -738,7 +738,7 @@ bool ParquetReader::scanInternal(ParquetReaderScanState& state, common::DataChun
                 bool lazy_fetch = false;
 
                 // Prefetch column-wise
-                for (auto col_idx = 0u; col_idx < 1; col_idx++) {
+                for (auto col_idx = 0u; col_idx < metadata->column_orders.size(); col_idx++) {
                     auto file_col_idx = col_idx;
                     auto root_reader =
                         reinterpret_cast<StructColumnReader*>(state.rootReader.get());
@@ -785,7 +785,7 @@ bool ParquetReader::scanInternal(ParquetReaderScanState& state, common::DataChun
 
     auto root_reader = reinterpret_cast<StructColumnReader*>(state.rootReader.get());
 
-    for (auto col_idx = 0u; col_idx < 1; col_idx++) {
+    for (auto col_idx = 0u; col_idx < metadata->column_orders.size(); col_idx++) {
         auto file_col_idx = col_idx;
         auto result_vector = result.getValueVector(col_idx);
         auto child_reader = root_reader->getChildReader(file_col_idx);
