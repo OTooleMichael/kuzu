@@ -725,6 +725,9 @@ void ColumnChunk::update(ValueVector* vector, vector_idx_t vectorIdx) {
             memcpy(buffer.get() + offsetInChunk * numBytesPerValue,
                 vector->getData() + pos * numBytesPerValue, numBytesPerValue);
         }
+        if (pos >= numValues) {
+            numValues = pos + 1;
+        }
     }
 }
 
