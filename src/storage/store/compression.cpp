@@ -221,16 +221,28 @@ uint64_t IntegerBitpacking<T>::compressNextPage(const uint8_t*& srcBuffer,
         return 0;
     }
     auto numValuesToCompress = std::min(numValuesRemaining, numValues(dstBufferSize, header));
+    // Round up to nearest byte
     auto sizeToCompress =
         numValuesToCompress * bitWidth / 8 + (numValuesToCompress * bitWidth % 8 != 0);
     assert(dstBufferSize >= CHUNK_SIZE);
     assert(dstBufferSize >= sizeToCompress);
-    for (auto i = 0ull; i < numValuesToCompress; i += CHUNK_SIZE) {
+    // This might overflow the source buffer if there are fewer values remaining than the chunk size
+    // so we stop at the end of the last full chunk and use a temporary array to avoid overflow.
+    auto lastFullChunkEnd = numValuesToCompress - numValuesToCompress % CHUNK_SIZE;
+    for (auto i = 0ull; i < lastFullChunkEnd; i += CHUNK_SIZE) {
         FastPForLib::fastpack(
             (const U*)srcBuffer + i, (uint32_t*)(dstBuffer + i * bitWidth / 8), bitWidth);
     }
+    // Pack last partial chunk, avoiding overflows
+    if (numValuesToCompress % CHUNK_SIZE > 0) {
+        // TODO(bmwinger): optimize to remove temporary array
+        U chunk[CHUNK_SIZE] = {0};
+        memcpy(chunk, (const U*)srcBuffer + lastFullChunkEnd,
+            numValuesToCompress % CHUNK_SIZE * sizeof(U));
+        FastPForLib::fastpack(
+            chunk, (uint32_t*)(dstBuffer + lastFullChunkEnd * bitWidth / 8), bitWidth);
+    }
     srcBuffer += numValuesToCompress * sizeof(U);
-    // Round up to nearest byte
     return sizeToCompress;
 }
 
