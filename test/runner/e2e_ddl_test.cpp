@@ -766,6 +766,7 @@ public:
 };
 
 TEST_F(TinySnbDDLTest1, RenamePropertyRecovery) {
+    conn->setMaxNumThreadForExec(2);
     printf("%s", conn->query("match (t:test) return *")->toString().c_str());
 }
 

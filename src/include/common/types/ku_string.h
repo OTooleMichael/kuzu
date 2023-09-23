@@ -53,7 +53,7 @@ struct ku_string_t {
             value.len);
     }
 
-    inline void set1(const char* value, uint64_t length) {
+    void set1(const char* value, uint64_t length) {
         this->len = length;
         if (isShortString(length)) {
             setShortString(value, length);

@@ -60,6 +60,19 @@ void Reader::readNextDataChunk() {
             break;
         }
         dataChunk->state->selVector->selectedSize = 0;
+        dataChunk->resetAuxiliaryBuffer();
+        if (sharedState->readerConfig->fileType == FileType::PARQUET &&
+            dataChunk->getValueVector(0)->dataType.getPhysicalType() !=
+                PhysicalTypeID::ARROW_COLUMN) {
+            auto readerData = reinterpret_cast<NodeParquetReaderFunctionData*>(readFuncData.get());
+            if (!readerData->state->group_idx_list.empty()) {
+                readFunc(*readFuncData, readerData->state->group_idx_list[0], dataChunk.get());
+                if (dataChunk->state->selVector->selectedSize > 0) {
+                    leftArrowArrays.appendFromDataChunk(dataChunk.get());
+                    continue;
+                }
+            }
+        }
         auto morsel = sharedState->getMorsel<READ_MODE>();
         if (morsel->fileIdx == INVALID_VECTOR_IDX) {
             // No more files to read.
@@ -68,7 +81,6 @@ void Reader::readNextDataChunk() {
         if (morsel->fileIdx != readFuncData->fileIdx) {
             initFunc(*readFuncData, morsel->fileIdx, *sharedState->readerConfig);
         }
-        dataChunk->resetAuxiliaryBuffer();
         readFunc(*readFuncData, morsel->blockIdx, dataChunk.get());
         if (dataChunk->state->selVector->selectedSize > 0) {
             leftArrowArrays.appendFromDataChunk(dataChunk.get());

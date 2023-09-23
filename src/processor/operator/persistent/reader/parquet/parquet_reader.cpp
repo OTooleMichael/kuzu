@@ -1,11 +1,11 @@
-#include "processor/operator/persistent/reader/parquet_reader.h"
+#include "processor/operator/persistent/reader/parquet/parquet_reader.h"
 
 #include "common/exception/copy.h"
 #include "common/exception/not_implemented.h"
 #include "common/file_utils.h"
 #include "common/string_utils.h"
-#include "processor/operator/persistent/reader/list_column_reader.h"
-#include "processor/operator/persistent/reader/thrift_tools.h"
+#include "processor/operator/persistent/reader/parquet/list_column_reader.h"
+#include "processor/operator/persistent/reader/parquet/thrift_tools.h"
 
 using namespace kuzu_parquet::format;
 

@@ -1,0 +1,11 @@
+add_library(kuzu_processor_operator_parquet_reader
+        OBJECT
+        column_reader.cpp
+        parquet_reader.cpp
+        struct_column_reader.cpp
+        string_column_reader.cpp
+        list_column_reader.cpp)
+
+set(ALL_OBJECT_FILES
+        ${ALL_OBJECT_FILES} $<TARGET_OBJECTS:kuzu_processor_operator_parquet_reader>
+        PARENT_SCOPE)

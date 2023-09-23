@@ -6,7 +6,7 @@
 #include "common/exception/binder.h"
 #include "parser/query/reading_clause/in_query_call_clause.h"
 #include "parser/query/reading_clause/unwind_clause.h"
-#include "processor/operator/persistent/reader/csv_reader.h"
+#include "processor/operator/persistent/reader/csv/csv_reader.h"
 
 using namespace kuzu::common;
 using namespace kuzu::parser;

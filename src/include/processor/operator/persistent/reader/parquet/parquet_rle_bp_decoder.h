@@ -116,5 +116,6 @@ private:
         return true;
     }
 };
+
 } // namespace processor
 } // namespace kuzu

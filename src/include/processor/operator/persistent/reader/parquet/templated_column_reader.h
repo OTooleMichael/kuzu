@@ -57,6 +57,7 @@ public:
                 result->setNull(row_idx + result_offset, true);
                 continue;
             }
+            result->setNull(row_idx + result_offset, false);
             if (filter[row_idx + result_offset]) {
                 VALUE_TYPE val = VALUE_CONVERSION::DictRead(*dict, offsets[offset_idx++], *this);
                 result->setValue(row_idx + result_offset, val);

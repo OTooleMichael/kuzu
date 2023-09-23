@@ -126,5 +126,6 @@ private:
 
     uint8_t bitpack_pos;
 };
+
 } // namespace processor
 } // namespace kuzu

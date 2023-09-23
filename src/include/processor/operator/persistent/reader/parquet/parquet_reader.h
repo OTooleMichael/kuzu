@@ -3,7 +3,6 @@
 #include "column_reader.h"
 #include "common/data_chunk/data_chunk.h"
 #include "common/types/types.h"
-//#include "list_column_reader.h"
 #include "parquet/parquet_types.h"
 #include "resizable_buffer.h"
 #include "struct_column_reader.h"
@@ -20,7 +19,7 @@ struct ParquetReaderPrefetchConfig {
 
 struct ParquetReaderScanState {
     std::vector<uint64_t> group_idx_list;
-    int64_t current_group;
+    int64_t current_group = -1;
     uint64_t group_offset;
     std::unique_ptr<common::FileInfo> fileInfo;
     std::unique_ptr<ColumnReader> rootReader;
@@ -66,6 +65,14 @@ public:
         }
     }
 
+    const kuzu_parquet::format::RowGroup& getGroup(ParquetReaderScanState& state) {
+        assert(
+            state.current_group >= 0 && (int64_t)state.current_group < state.group_idx_list.size());
+        assert(state.group_idx_list[state.current_group] >= 0 &&
+               state.group_idx_list[state.current_group] < metadata->row_groups.size());
+        return metadata->row_groups[state.group_idx_list[state.current_group]];
+    }
+
 private:
     // void InitializeSchema();
     // bool ScanInternal(ParquetReaderScanState& state, common::DataChunk& output);
@@ -95,14 +102,6 @@ private:
         uint64_t maxRepeat, uint64_t& nextSchemaIdx, uint64_t& nextFileIdx);
 
     void prepareRowGroupBuffer(ParquetReaderScanState& state, uint64_t col_idx);
-
-    const kuzu_parquet::format::RowGroup& getGroup(ParquetReaderScanState& state) {
-        assert(
-            state.current_group >= 0 && (int64_t)state.current_group < state.group_idx_list.size());
-        assert(state.group_idx_list[state.current_group] >= 0 &&
-               state.group_idx_list[state.current_group] < metadata->row_groups.size());
-        return metadata->row_groups[state.group_idx_list[state.current_group]];
-    }
 
     // Group span is the distance between the min page offset and the max page offset plus the max
     // page compressed size

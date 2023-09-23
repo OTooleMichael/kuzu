@@ -1,8 +1,7 @@
-
-
 #pragma once
 
 #include "column_reader.h"
+#include "processor/operator/persistent/reader/parquet/templated_column_reader.h"
 
 namespace kuzu {
 namespace processor {
@@ -27,7 +26,6 @@ public:
 
     std::unique_ptr<common::ku_string_t[]> dict_strings;
     uint64_t fixed_width_string_length;
-    uint64_t delta_offset = 0;
 
 public:
     void Dictionary(

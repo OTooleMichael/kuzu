@@ -1,7 +1,5 @@
 #include "processor/operator/persistent/reader_functions.h"
 
-#include "processor/operator/persistent/reader/parquet_reader.h"
-
 using namespace kuzu::common;
 using namespace kuzu::catalog;
 using namespace kuzu::storage;
@@ -239,8 +237,7 @@ std::vector<FileBlocksInfo> ReaderFunctions::countRowsInNodeParquetFile(
         auto reader = std::make_unique<ParquetReader>(path);
         auto numRows = reader->metadata->num_rows;
         FileBlocksInfo fileBlocksInfo{
-            (row_idx_t)numRows, (block_idx_t)(numRows / DEFAULT_VECTOR_CAPACITY +
-                                              (numRows % DEFAULT_VECTOR_CAPACITY > 0 ? 1 : 0))};
+            (row_idx_t)numRows, (block_idx_t)reader->metadata->row_groups.size()};
         fileInfos.push_back(fileBlocksInfo);
     }
     return fileInfos;
@@ -309,6 +306,8 @@ void ReaderFunctions::initNodeParquetReadData(
     funcData.fileIdx = fileIdx;
     reinterpret_cast<NodeParquetReaderFunctionData&>(funcData).reader =
         std::make_unique<ParquetReader>(config.filePaths[fileIdx]);
+    reinterpret_cast<NodeParquetReaderFunctionData&>(funcData).state =
+        std::make_unique<ParquetReaderScanState>();
 }
 
 void ReaderFunctions::initNPYReadData(
@@ -326,7 +325,7 @@ void ReaderFunctions::initRDFReadData(
 }
 
 void ReaderFunctions::readRowsFromRelCSVFile(
-    const ReaderFunctionData& functionData, block_idx_t blockIdx, DataChunk* dataChunkToRead) {
+    ReaderFunctionData& functionData, block_idx_t blockIdx, DataChunk* dataChunkToRead) {
     auto& readerData = reinterpret_cast<const RelCSVReaderFunctionData&>(functionData);
     std::shared_ptr<arrow::RecordBatch> recordBatch;
     TableCopyUtils::throwCopyExceptionIfNotOK(readerData.reader->ReadNext(&recordBatch));
@@ -342,13 +341,13 @@ void ReaderFunctions::readRowsFromRelCSVFile(
 }
 
 void ReaderFunctions::readRowsFromNodeCSVFile(
-    const ReaderFunctionData& functionData, block_idx_t blockIdx, DataChunk* dataChunkToRead) {
+    ReaderFunctionData& functionData, block_idx_t blockIdx, DataChunk* dataChunkToRead) {
     auto& readerData = reinterpret_cast<const NodeCSVReaderFunctionData&>(functionData);
     readerData.reader->ParseCSV(*dataChunkToRead);
 }
 
-void ReaderFunctions::readRowsFromRelParquetFile(const ReaderFunctionData& functionData,
-    block_idx_t blockIdx, common::DataChunk* dataChunkToRead) {
+void ReaderFunctions::readRowsFromRelParquetFile(
+    ReaderFunctionData& functionData, block_idx_t blockIdx, common::DataChunk* dataChunkToRead) {
     auto& readerData = reinterpret_cast<const RelParquetReaderFunctionData&>(functionData);
     std::shared_ptr<arrow::Table> table;
     TableCopyUtils::throwCopyExceptionIfNotOK(
@@ -361,12 +360,14 @@ void ReaderFunctions::readRowsFromRelParquetFile(const ReaderFunctionData& funct
     dataChunkToRead->state->selVector->selectedSize = table->num_rows();
 }
 
-void ReaderFunctions::readRowsFromNodeParquetFile(const ReaderFunctionData& functionData,
-    block_idx_t blockIdx, common::DataChunk* dataChunkToRead) {
-    auto& readerData = reinterpret_cast<const NodeParquetReaderFunctionData&>(functionData);
-    ParquetReaderScanState state;
-    readerData.reader->initializeScan(state, {0});
-    readerData.reader->scan(state, *dataChunkToRead);
+void ReaderFunctions::readRowsFromNodeParquetFile(
+    ReaderFunctionData& functionData, block_idx_t blockIdx, common::DataChunk* dataChunkToRead) {
+    auto& readerData = reinterpret_cast<NodeParquetReaderFunctionData&>(functionData);
+    if (readerData.state->group_idx_list.empty() ||
+        readerData.state->group_idx_list[0] != blockIdx) {
+        readerData.reader->initializeScan(*readerData.state, {blockIdx});
+    }
+    readerData.reader->scan(*readerData.state, *dataChunkToRead);
     auto val = dataChunkToRead->getValueVector(0);
     auto d0 = val->getValue<int64_t>(0);
     auto d1 = val->getValue<int64_t>(1);
@@ -375,7 +376,7 @@ void ReaderFunctions::readRowsFromNodeParquetFile(const ReaderFunctionData& func
     auto c = 5;
 }
 
-void ReaderFunctions::readRowsFromNPYFile(const ReaderFunctionData& functionData,
+void ReaderFunctions::readRowsFromNPYFile(ReaderFunctionData& functionData,
     common::block_idx_t blockIdx, common::DataChunk* dataChunkToRead) {
     auto& readerData = reinterpret_cast<const NPYReaderFunctionData&>(functionData);
     auto recordBatch = readerData.reader->readBlock(blockIdx);
@@ -386,7 +387,7 @@ void ReaderFunctions::readRowsFromNPYFile(const ReaderFunctionData& functionData
     dataChunkToRead->state->selVector->selectedSize = recordBatch->num_rows();
 }
 
-void ReaderFunctions::readRowsFromRDFFile(const ReaderFunctionData& functionData,
+void ReaderFunctions::readRowsFromRDFFile(ReaderFunctionData& functionData,
     common::block_idx_t blockIdx, common::DataChunk* dataChunkToRead) {
     auto& readerData = reinterpret_cast<const RDFReaderFunctionData&>(functionData);
     readerData.reader->read(dataChunkToRead);
