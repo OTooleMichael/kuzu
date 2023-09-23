@@ -234,7 +234,7 @@ std::vector<FileBlocksInfo> ReaderFunctions::countRowsInNodeParquetFile(
     std::vector<FileBlocksInfo> fileInfos;
     fileInfos.reserve(config.filePaths.size());
     for (const auto& path : config.filePaths) {
-        auto reader = std::make_unique<ParquetReader>(path);
+        auto reader = std::make_unique<ParquetReader>(path, memoryManager);
         auto numRows = reader->metadata->num_rows;
         FileBlocksInfo fileBlocksInfo{
             (row_idx_t)numRows, (block_idx_t)reader->metadata->row_groups.size()};
@@ -276,49 +276,49 @@ std::vector<FileBlocksInfo> ReaderFunctions::countRowsInRDFFile(
     return {fileBlocksInfo};
 }
 
-void ReaderFunctions::initRelCSVReadData(
-    ReaderFunctionData& funcData, vector_idx_t fileIdx, const common::ReaderConfig& config) {
+void ReaderFunctions::initRelCSVReadData(ReaderFunctionData& funcData, vector_idx_t fileIdx,
+    const common::ReaderConfig& config, MemoryManager* memoryManager) {
     assert(fileIdx < config.getNumFiles());
     funcData.fileIdx = fileIdx;
     reinterpret_cast<RelCSVReaderFunctionData&>(funcData).reader =
         TableCopyUtils::createRelTableCSVReader(config.filePaths[fileIdx], config);
 }
 
-void ReaderFunctions::initNodeCSVReadData(
-    ReaderFunctionData& funcData, vector_idx_t fileIdx, const common::ReaderConfig& config) {
+void ReaderFunctions::initNodeCSVReadData(ReaderFunctionData& funcData, vector_idx_t fileIdx,
+    const common::ReaderConfig& config, MemoryManager* memoryManager) {
     assert(fileIdx < config.getNumFiles());
     funcData.fileIdx = fileIdx;
     reinterpret_cast<NodeCSVReaderFunctionData&>(funcData).reader =
         createBufferedCSVReader(config.filePaths[fileIdx], config);
 }
 
-void ReaderFunctions::initRelParquetReadData(
-    ReaderFunctionData& funcData, vector_idx_t fileIdx, const common::ReaderConfig& config) {
+void ReaderFunctions::initRelParquetReadData(ReaderFunctionData& funcData, vector_idx_t fileIdx,
+    const common::ReaderConfig& config, MemoryManager* memoryManager) {
     assert(fileIdx < config.getNumFiles());
     funcData.fileIdx = fileIdx;
     reinterpret_cast<RelParquetReaderFunctionData&>(funcData).reader =
         TableCopyUtils::createParquetReader(config.filePaths[fileIdx], config);
 }
 
-void ReaderFunctions::initNodeParquetReadData(
-    ReaderFunctionData& funcData, vector_idx_t fileIdx, const common::ReaderConfig& config) {
+void ReaderFunctions::initNodeParquetReadData(ReaderFunctionData& funcData, vector_idx_t fileIdx,
+    const common::ReaderConfig& config, MemoryManager* memoryManager) {
     assert(fileIdx < config.getNumFiles());
     funcData.fileIdx = fileIdx;
     reinterpret_cast<NodeParquetReaderFunctionData&>(funcData).reader =
-        std::make_unique<ParquetReader>(config.filePaths[fileIdx]);
+        std::make_unique<ParquetReader>(config.filePaths[fileIdx], memoryManager);
     reinterpret_cast<NodeParquetReaderFunctionData&>(funcData).state =
         std::make_unique<ParquetReaderScanState>();
 }
 
-void ReaderFunctions::initNPYReadData(
-    ReaderFunctionData& funcData, vector_idx_t fileIdx, const common::ReaderConfig& config) {
+void ReaderFunctions::initNPYReadData(ReaderFunctionData& funcData, vector_idx_t fileIdx,
+    const common::ReaderConfig& config, MemoryManager* memoryManager) {
     funcData.fileIdx = fileIdx;
     reinterpret_cast<NPYReaderFunctionData&>(funcData).reader =
         make_unique<NpyMultiFileReader>(config.filePaths);
 }
 
-void ReaderFunctions::initRDFReadData(
-    ReaderFunctionData& funcData, vector_idx_t fileIdx, const common::ReaderConfig& config) {
+void ReaderFunctions::initRDFReadData(ReaderFunctionData& funcData, vector_idx_t fileIdx,
+    const common::ReaderConfig& config, MemoryManager* memoryManager) {
     funcData.fileIdx = fileIdx;
     reinterpret_cast<RDFReaderFunctionData&>(funcData).reader =
         make_unique<RDFReader>(config.filePaths[0]);

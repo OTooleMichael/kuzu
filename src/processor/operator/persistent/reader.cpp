@@ -16,6 +16,7 @@ void Reader::initGlobalStateInternal(ExecutionContext* context) {
 }
 
 void Reader::initLocalStateInternal(ResultSet* resultSet, ExecutionContext* context) {
+    memoryManager = context->memoryManager;
     dataChunk = std::make_unique<DataChunk>(info->getNumColumns(),
         resultSet->getDataChunk(info->dataColumnsPos[0].dataChunkPos)->state);
     for (auto i = 0u; i < info->getNumColumns(); i++) {
@@ -34,7 +35,7 @@ void Reader::initLocalStateInternal(ResultSet* resultSet, ExecutionContext* cont
     default: {
         readFuncData =
             ReaderFunctions::getReadFuncData(sharedState->readerConfig->fileType, info->tableType);
-        initFunc(*readFuncData, 0, *sharedState->readerConfig);
+        initFunc(*readFuncData, 0, *sharedState->readerConfig, context->memoryManager);
     }
     }
 }
@@ -79,7 +80,7 @@ void Reader::readNextDataChunk() {
             break;
         }
         if (morsel->fileIdx != readFuncData->fileIdx) {
-            initFunc(*readFuncData, morsel->fileIdx, *sharedState->readerConfig);
+            initFunc(*readFuncData, morsel->fileIdx, *sharedState->readerConfig, memoryManager);
         }
         readFunc(*readFuncData, morsel->blockIdx, dataChunk.get());
         if (dataChunk->state->selVector->selectedSize > 0) {

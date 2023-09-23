@@ -38,7 +38,7 @@ SystemConfig::SystemConfig(uint64_t bufferPoolSize_) {
                                      (double_t)std::min(systemMemSize, (std::uint64_t)UINTPTR_MAX));
     }
     bufferPoolSize = bufferPoolSize_;
-    maxNumThreads = std::thread::hardware_concurrency();
+    maxNumThreads = 1;
 }
 
 Database::Database(std::string databasePath) : Database{std::move(databasePath), SystemConfig()} {}

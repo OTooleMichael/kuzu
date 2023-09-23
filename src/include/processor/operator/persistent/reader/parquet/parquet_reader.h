@@ -36,7 +36,7 @@ struct ParquetReaderScanState {
 
 class ParquetReader {
 public:
-    ParquetReader(const std::string& filePath);
+    ParquetReader(const std::string& filePath, storage::MemoryManager* memoryManager);
     ~ParquetReader() = default;
 
     std::string filePath;
@@ -44,6 +44,7 @@ public:
     //    std::vector<std::string> names;
     std::unique_ptr<kuzu_parquet::format::FileMetaData> metadata;
     // std::unique_ptr<ColumnReader> root_reader;
+    storage::MemoryManager* memoryManager;
 
 public:
     void initializeScan(ParquetReaderScanState& state, std::vector<uint64_t> groups_to_read);

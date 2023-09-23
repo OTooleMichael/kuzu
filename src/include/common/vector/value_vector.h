@@ -166,6 +166,21 @@ public:
         InMemOverflowBuffer* rowOverflowBuffer);
     static void copyFromVectorData(ValueVector* dstVector, uint8_t* dstData,
         const ValueVector* srcVector, const uint8_t* srcData);
+
+    static void appendDataVector(
+        ValueVector* dstVector, ValueVector* srcDataVector, uint64_t numValuesToAppend) {
+        auto offset = getDataVectorSize(dstVector);
+        resizeDataVector(dstVector, offset + numValuesToAppend);
+        for (auto i = 0u; i < numValuesToAppend; i++) {
+            getDataVector(dstVector)->copyFromVectorData(offset + i, srcDataVector, i);
+        }
+    }
+
+    static void sliceDataVector(ValueVector* vectorToSlice, uint64_t childIdx, uint64_t numValues) {
+        for (auto i = 0u; i < numValues - childIdx; i++) {
+            vectorToSlice->copyFromVectorData(i, vectorToSlice, i + childIdx);
+        }
+    }
 };
 
 class StructVector {

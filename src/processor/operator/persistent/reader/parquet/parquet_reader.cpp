@@ -135,7 +135,7 @@ std::unique_ptr<ColumnReader> ParquetReader::createReaderRecursive(uint64_t dept
             result_type = std::make_unique<common::LogicalType>(
                 common::LogicalTypeID::VAR_LIST, std::move(varListInfo));
             return std::make_unique<ListColumnReader>(*this, std::move(result_type), s_ele,
-                this_idx, max_define, max_repeat, std::move(result));
+                this_idx, max_define, max_repeat, std::move(result), memoryManager);
         }
         return result;
     } else { // leaf node
@@ -218,7 +218,8 @@ std::unique_ptr<ColumnReader> ParquetReader::createReader() {
 //    }
 //}
 //
-ParquetReader::ParquetReader(const std::string& filePath) : filePath{filePath} {
+ParquetReader::ParquetReader(const std::string& filePath, storage::MemoryManager* memoryManager)
+    : filePath{filePath}, memoryManager{memoryManager} {
     fileInfo = common::FileUtils::openFile(filePath, O_RDONLY);
     initMetadata();
     // InitializeSchema();

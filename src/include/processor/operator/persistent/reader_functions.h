@@ -47,8 +47,9 @@ struct FileBlocksInfo {
 };
 
 using validate_func_t = std::function<void(const common::ReaderConfig& config)>;
-using init_reader_data_func_t = std::function<void(ReaderFunctionData& funcData,
-    common::vector_idx_t fileIdx, const common::ReaderConfig& config)>;
+using init_reader_data_func_t =
+    std::function<void(ReaderFunctionData& funcData, common::vector_idx_t fileIdx,
+        const common::ReaderConfig& config, storage::MemoryManager* memoryManager)>;
 using count_blocks_func_t = std::function<std::vector<FileBlocksInfo>(
     const common::ReaderConfig& config, storage::MemoryManager* memoryManager)>;
 using read_rows_func_t = std::function<void(
@@ -89,17 +90,17 @@ struct ReaderFunctions {
         const common::ReaderConfig& config, storage::MemoryManager* memoryManager);
 
     static void initRelCSVReadData(ReaderFunctionData& funcData, common::vector_idx_t fileIdx,
-        const common::ReaderConfig& config);
+        const common::ReaderConfig& config, storage::MemoryManager* memoryManager);
     static void initNodeCSVReadData(ReaderFunctionData& funcData, common::vector_idx_t fileIdx,
-        const common::ReaderConfig& config);
+        const common::ReaderConfig& config, storage::MemoryManager* memoryManager);
     static void initRelParquetReadData(ReaderFunctionData& funcData, common::vector_idx_t fileIdx,
-        const common::ReaderConfig& config);
+        const common::ReaderConfig& config, storage::MemoryManager* memoryManager);
     static void initNodeParquetReadData(ReaderFunctionData& funcData, common::vector_idx_t fileIdx,
-        const common::ReaderConfig& config);
+        const common::ReaderConfig& config, storage::MemoryManager* memoryManager);
     static void initNPYReadData(ReaderFunctionData& funcData, common::vector_idx_t fileIdx,
-        const common::ReaderConfig& config);
+        const common::ReaderConfig& config, storage::MemoryManager* memoryManager);
     static void initRDFReadData(ReaderFunctionData& funcData, common::vector_idx_t fileIdx,
-        const common::ReaderConfig& config);
+        const common::ReaderConfig& config, storage::MemoryManager* memoryManager);
 
     static void readRowsFromRelCSVFile(ReaderFunctionData& funcData, common::block_idx_t blockIdx,
         common::DataChunk* dataChunkToRead);

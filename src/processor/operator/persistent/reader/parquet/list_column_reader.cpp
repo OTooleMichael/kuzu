@@ -7,9 +7,10 @@ ListColumnReader::ListColumnReader(ParquetReader& reader,
     std::unique_ptr<common::LogicalType> type_p,
     const kuzu_parquet::format::SchemaElement& schema_p, uint64_t schema_idx_p,
     uint64_t max_define_p, uint64_t max_repeat_p,
-    std::unique_ptr<ColumnReader> child_column_reader_p)
+    std::unique_ptr<ColumnReader> child_column_reader_p, storage::MemoryManager* memoryManager)
     : ColumnReader(reader, std::move(type_p), schema_p, schema_idx_p, max_define_p, max_repeat_p),
-      child_column_reader(std::move(child_column_reader_p)), overflow_child_count(0) {
+      child_column_reader(std::move(child_column_reader_p)),
+      overflow_child_count(0), memoryManager{memoryManager} {
 
     child_defines.resize(common::DEFAULT_VECTOR_CAPACITY);
     child_repeats.resize(common::DEFAULT_VECTOR_CAPACITY);
@@ -17,6 +18,9 @@ ListColumnReader::ListColumnReader(ParquetReader& reader,
     child_repeats_ptr = (uint8_t*)child_repeats.ptr;
 
     child_filter.set();
+
+    readVector = std::make_unique<common::ValueVector>(
+        *common::VarListType::getChildType(type.get()), memoryManager);
 }
 
 void ListColumnReader::ApplyPendingSkips(uint64_t num_values) {
@@ -68,9 +72,9 @@ uint64_t ListColumnReader::Read(uint64_t num_values, parquet_filter_t& filter, u
             // subsequent read
             auto child_req_num_values = std::min<uint64_t>(
                 common::DEFAULT_VECTOR_CAPACITY, child_column_reader->GroupRowsAvailable());
-            child_actual_num_values =
-                child_column_reader->Read(child_req_num_values, child_filter, child_defines_ptr,
-                    child_repeats_ptr, common::ListVector::getDataVector(result_out));
+            child_actual_num_values = child_column_reader->Read(child_req_num_values, child_filter,
+                child_defines_ptr, child_repeats_ptr, readVector.get());
+            auto values = (int64_t*)readVector->getData();
         } else {
             // we do: use the overflow values
             child_actual_num_values = overflow_child_count;
@@ -120,7 +124,10 @@ uint64_t ListColumnReader::Read(uint64_t num_values, parquet_filter_t& filter, u
 
             result_offset++;
         }
+        common::ListVector::appendDataVector(result_out, readVector.get(), child_idx);
         if (child_idx < child_actual_num_values && result_offset == num_values) {
+            common::ListVector::sliceDataVector(
+                readVector.get(), child_idx, child_actual_num_values);
             overflow_child_count = child_actual_num_values - child_idx;
             // move values in the child repeats and defines *backward* by child_idx
             for (auto repdef_idx = 0; repdef_idx < overflow_child_count; repdef_idx++) {

@@ -15,7 +15,7 @@ public:
     ListColumnReader(ParquetReader& reader, std::unique_ptr<common::LogicalType> type_p,
         const kuzu_parquet::format::SchemaElement& schema_p, uint64_t schema_idx_p,
         uint64_t max_define_p, uint64_t max_repeat_p,
-        std::unique_ptr<ColumnReader> child_column_reader_p);
+        std::unique_ptr<ColumnReader> child_column_reader_p, storage::MemoryManager* memoryManager);
 
     uint64_t Read(uint64_t num_values, parquet_filter_t& filter, uint8_t* define_out,
         uint8_t* repeat_out, common::ValueVector* result_out) override;
@@ -48,6 +48,10 @@ private:
     parquet_filter_t child_filter;
 
     uint64_t overflow_child_count;
+
+    std::unique_ptr<common::ValueVector> readVector;
+
+    storage::MemoryManager* memoryManager;
 };
 
 } // namespace processor
