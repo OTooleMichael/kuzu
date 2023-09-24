@@ -22,6 +22,7 @@ public:
     ColumnReader(ParquetReader& reader, std::unique_ptr<common::LogicalType> type,
         const kuzu_parquet::format::SchemaElement& schema, uint64_t fileIdx, uint64_t maxDefinition,
         uint64_t maxRepeat);
+    virtual ~ColumnReader() = default;
     inline common::LogicalType* getDataType() const { return type.get(); }
     inline bool hasDefines() { return maxDefine > 0; }
     inline bool hasRepeats() { return maxRepeat > 0; }
