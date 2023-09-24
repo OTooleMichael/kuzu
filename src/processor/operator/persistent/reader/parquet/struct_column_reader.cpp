@@ -9,7 +9,7 @@ StructColumnReader::StructColumnReader(ParquetReader& reader,
     std::vector<std::unique_ptr<ColumnReader>> childReaders)
     : ColumnReader(reader, std::move(type), schema, schemaIdx, maxDefine, maxRepeat),
       childReaders(std::move(childReaders)) {
-    assert(type->getPhysicalType() == common::PhysicalTypeID::STRUCT);
+    assert(this->type->getPhysicalType() == common::PhysicalTypeID::STRUCT);
 }
 
 ColumnReader* StructColumnReader::getChildReader(uint64_t childIdx) {
