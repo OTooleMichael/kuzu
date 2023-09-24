@@ -137,7 +137,14 @@ fn build_bundled_cmake() -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
     let kuzu_lib_path = build_dir.join("build").join("src");
     println!("cargo:rustc-link-search=native={}", kuzu_lib_path.display());
 
-    for dir in ["utf8proc", "antlr4_cypher", "antlr4_runtime", "re2", "serd", "miniparquet"] {
+    for dir in [
+        "utf8proc",
+        "antlr4_cypher",
+        "antlr4_runtime",
+        "re2",
+        "serd",
+        "miniparquet",
+    ] {
         let lib_path = build_dir
             .join("build")
             .join("third_party")
